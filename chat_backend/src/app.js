@@ -25,6 +25,16 @@ app.use(express.urlencoded({ extended: true }));
 // enable cors
 app.use(cors());
 
+// Health check endpoint
+app.get('/', (req, res) => {
+    res.json({ 
+        message: 'Bubble Chat Backend API', 
+        status: 'running',
+        version: '1.0.0',
+        endpoints: '/api'
+    });
+});
+
 // v1 api routes
 app.use('/api', routes);
 
