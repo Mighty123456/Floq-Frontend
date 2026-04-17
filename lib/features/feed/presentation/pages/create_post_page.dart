@@ -1,0 +1,159 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/presentation/widgets/bouncy_button.dart';
+import '../../../../core/presentation/widgets/bubble_notification.dart';
+
+class CreatePostPage extends StatefulWidget {
+  const CreatePostPage({super.key});
+
+  @override
+  State<CreatePostPage> createState() => _CreatePostPageState();
+}
+
+class _CreatePostPageState extends State<CreatePostPage> {
+  final TextEditingController _contentController = TextEditingController();
+  bool _isPosting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+      appBar: AppBar(
+        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.close_rounded, color: isDark ? Colors.white : Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          "Create Post",
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: BouncyButton(
+              onTap: () {
+                if (!_isPosting) _handlePost();
+              },
+
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: _isPosting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          "Post",
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const CircleAvatar(
+                    radius: 20,
+                    backgroundImage: NetworkImage("https://i.pravatar.cc/150?u=my_profile"),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _contentController,
+                      maxLines: null,
+                      autofocus: true,
+                      style: GoogleFonts.poppins(fontSize: 16),
+                      decoration: InputDecoration(
+                        hintText: "What's on your mind?",
+                        hintStyle: TextStyle(color: Colors.grey[500]),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Tool bar for adding media
+          Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+              left: 16,
+              right: 16,
+              top: 16,
+            ),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? Colors.white10 : Colors.black12,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                _buildToolIcon(Icons.image_outlined, "Photo", colorScheme),
+                _buildToolIcon(Icons.videocam_outlined, "Video", colorScheme),
+                _buildToolIcon(Icons.location_on_outlined, "Location", colorScheme),
+                _buildToolIcon(Icons.emoji_emotions_outlined, "Emoji", colorScheme),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolIcon(IconData icon, String label, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 24),
+      child: Icon(icon, color: colorScheme.primary, size: 28),
+    );
+  }
+
+  void _handlePost() async {
+    if (_contentController.text.trim().isEmpty) return;
+
+    setState(() {
+      _isPosting = true;
+    });
+
+    // Simulate network delay
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    BubbleNotification.show(context, "Post published successfully!");
+    Navigator.pop(context);
+  }
+
+}

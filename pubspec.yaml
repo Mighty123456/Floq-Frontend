@@ -1,4 +1,4 @@
-name: chatapplication
+name: floq
 description: "A new Flutter project."
 publish_to: 'none'
 
@@ -25,17 +25,18 @@ dependencies:
   emoji_picker_flutter: 2.1.1
   intl: ^0.18.1
   image_picker: ^0.8.7+5
-  file_picker: ^10.3.8
+  file_picker: ^8.1.3
   geolocator: ^10.1.1
   flutter_contacts: ^1.1.9
   permission_handler: ^11.4.0
   package_info_plus: ^4.0.0
   url_launcher: ^6.1.10
-  
-  # Network & Storage
-  http: ^1.1.0
-  socket_io_client: ^2.0.3+1
-  shared_preferences: ^2.2.2
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.8
+  http: ^1.6.0
+  cached_network_image: ^3.4.1
+  dio: ^5.9.2
+  flutter_secure_storage: ^10.0.0
 
 
 dev_dependencies:
@@ -43,6 +44,11 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.13.1
+
+dependency_overrides:
+  path_provider_foundation: 2.3.2
+  shared_preferences_foundation: 2.3.5
+  objective_c: 1.0.0
 
 flutter:
   uses-material-design: true
@@ -52,6 +58,7 @@ flutter:
     - assets/3.jpg
     - assets/4.jpg
     - assets/5.jpg
+    - assets/icon.png
 
 flutter_icons:
   android: true
