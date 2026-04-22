@@ -1,4 +1,4 @@
-enum UserRelation { none, pending, accepted }
+enum UserRelation { none, pending, accepted, blocked }
 
 class UserEntity {
   final String id;
@@ -7,6 +7,9 @@ class UserEntity {
   final UserRelation relation;
   final String bio;
   final Map<String, String> links;
+  final int followersCount;
+  final int followingCount;
+  final int postsCount;
 
   UserEntity({
     required this.id,
@@ -15,6 +18,9 @@ class UserEntity {
     this.relation = UserRelation.none,
     this.bio = '',
     this.links = const {},
+    this.followersCount = 0,
+    this.followingCount = 0,
+    this.postsCount = 0,
   });
 
   UserEntity copyWith({
@@ -24,6 +30,9 @@ class UserEntity {
     UserRelation? relation,
     String? bio,
     Map<String, String>? links,
+    int? followersCount,
+    int? followingCount,
+    int? postsCount,
   }) {
     return UserEntity(
       id: id ?? this.id,
@@ -32,6 +41,9 @@ class UserEntity {
       relation: relation ?? this.relation,
       bio: bio ?? this.bio,
       links: links ?? this.links,
+      followersCount: followersCount ?? this.followersCount,
+      followingCount: followingCount ?? this.followingCount,
+      postsCount: postsCount ?? this.postsCount,
     );
   }
 

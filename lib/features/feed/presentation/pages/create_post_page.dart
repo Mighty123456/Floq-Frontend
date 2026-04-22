@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/presentation/widgets/bouncy_button.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/feed_bloc.dart';
+import '../bloc/feed_event.dart';
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({super.key});
@@ -12,6 +17,8 @@ class CreatePostPage extends StatefulWidget {
 
 class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _contentController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+  final List<File> _selectedImages = [];
   bool _isPosting = false;
 
   @override
@@ -88,16 +95,68 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
-                      controller: _contentController,
-                      maxLines: null,
-                      autofocus: true,
-                      style: GoogleFonts.poppins(fontSize: 16),
-                      decoration: InputDecoration(
-                        hintText: "What's on your mind?",
-                        hintStyle: TextStyle(color: Colors.grey[500]),
-                        border: InputBorder.none,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _contentController,
+                          maxLines: null,
+                          autofocus: true,
+                          style: GoogleFonts.poppins(fontSize: 16),
+                          decoration: InputDecoration(
+                            hintText: "What's on your mind?",
+                            hintStyle: TextStyle(color: Colors.grey[500]),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                        if (_selectedImages.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: 200,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _selectedImages.length,
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Stack(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Image.file(
+                                          _selectedImages[index],
+                                          width: 150,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 8,
+                                        right: 8,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedImages.removeAt(index);
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.black54,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.close, color: Colors.white, size: 16),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -121,7 +180,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ),
             child: Row(
               children: [
-                _buildToolIcon(Icons.image_outlined, "Photo", colorScheme),
+                _buildToolIcon(Icons.image_outlined, "Photo", colorScheme, onTap: _pickImages),
                 _buildToolIcon(Icons.videocam_outlined, "Video", colorScheme),
                 _buildToolIcon(Icons.location_on_outlined, "Location", colorScheme),
                 _buildToolIcon(Icons.emoji_emotions_outlined, "Emoji", colorScheme),
@@ -133,27 +192,50 @@ class _CreatePostPageState extends State<CreatePostPage> {
     );
   }
 
-  Widget _buildToolIcon(IconData icon, String label, ColorScheme colorScheme) {
+  Widget _buildToolIcon(IconData icon, String label, ColorScheme colorScheme, {VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.only(right: 24),
-      child: Icon(icon, color: colorScheme.primary, size: 28),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Icon(icon, color: colorScheme.primary, size: 28),
+      ),
     );
   }
 
+  Future<void> _pickImages() async {
+    final List<XFile> images = await _picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      setState(() {
+        _selectedImages.addAll(images.map((img) => File(img.path)));
+      });
+    }
+  }
+
   void _handlePost() async {
-    if (_contentController.text.trim().isEmpty) return;
+    if (_contentController.text.trim().isEmpty && _selectedImages.isEmpty) return;
 
     setState(() {
       _isPosting = true;
     });
 
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
-    BubbleNotification.show(context, "Post published successfully!");
-    Navigator.pop(context);
+    try {
+      context.read<FeedBloc>().add(CreatePostRequested(
+        _contentController.text.trim(),
+        _selectedImages.map((f) => f.path).toList(),
+      ));
+      
+      // Wait for state change if needed, or assume optimistic success
+      // In Bloc, we should ideally listen for success state.
+      // But for now we just pop.
+      
+      if (!mounted) return;
+      BubbleNotification.show(context, "Post published successfully!");
+      Navigator.pop(context);
+    } catch (e) {
+      setState(() => _isPosting = false);
+      if (!mounted) return;
+      BubbleNotification.show(context, "Failed to publish post: $e", type: NotificationType.error);
+    }
   }
 
 }

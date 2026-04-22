@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/presentation/widgets/bouncy_button.dart';
+import 'package:intl/intl.dart';
+import '../bloc/chat_bloc.dart';
+import '../bloc/chat_event.dart';
+import '../bloc/chat_state.dart';
+import '../../data/repositories/chat_repository_impl.dart';
+import '../../../../core/presentation/widgets/bubble_loader.dart';
 
 class SavedItemsPage extends StatelessWidget {
   const SavedItemsPage({super.key});
@@ -9,126 +15,110 @@ class SavedItemsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
-            elevation: 0,
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: isDark ? Colors.white : Colors.black87),
-              onPressed: () => Navigator.pop(context),
-            ),
-            title: Text(
-              "Saved Collection",
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.filter_list_rounded),
-                onPressed: () {},
-              )
-            ],
-          ),
-          
-          // Stats Row
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  _buildStatTile(context, "24", "Posts", Icons.grid_on_rounded),
-                  const SizedBox(width: 12),
-                  _buildStatTile(context, "12", "Reels", Icons.play_circle_outline_rounded),
-                  const SizedBox(width: 12),
-                  _buildStatTile(context, "3", "Links", Icons.link_rounded),
-                ],
+    return BlocProvider(
+      create: (context) => ChatBloc(
+        repository: context.read<ChatRepositoryImpl>(),
+      )..add(const LoadSavedMessages()),
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+        body: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: isDark ? Colors.white : Colors.black87),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: Text(
+                "Saved Collection",
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ),
-          ),
+            
+            BlocBuilder<ChatBloc, ChatState>(
+              builder: (context, state) {
+                if (state.isLoading) {
+                  return const SliverFillRemaining(child: Center(child: BubbleLoader()));
+                }
 
-          // Grid
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.8,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return BouncyButton(
-                    onTap: () {},
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white10 : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(20),
-                        image: DecorationImage(
-                          image: NetworkImage("https://picsum.photos/seed/saved_page$index/400/500"),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.6),
-                            ],
-                          ),
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        alignment: Alignment.bottomLeft,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.bookmark_rounded, color: Colors.white, size: 14),
-                            const SizedBox(width: 6),
-                            Text(
-                              index % 2 == 0 ? "Design" : "Tech",
-                              style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
+                if (state.savedMessages.isEmpty) {
+                  return SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.bookmark_border_rounded, size: 64, color: Colors.grey.withValues(alpha: 0.3)),
+                          const SizedBox(height: 16),
+                          Text("No saved items yet", style: GoogleFonts.poppins(color: Colors.grey)),
+                        ],
                       ),
                     ),
                   );
-                },
-                childCount: 12,
-              ),
+                }
+
+                return SliverPadding(
+                  padding: const EdgeInsets.all(16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final msg = state.savedMessages[index];
+                        return _buildSavedItem(context, msg);
+                      },
+                      childCount: state.savedMessages.length,
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatTile(BuildContext context, String value, String label, IconData icon) {
+  Widget _buildSavedItem(BuildContext context, dynamic msg) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(value, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(label, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
+    final time = DateFormat('MMM d, hh:mm a').format(msg.timestamp);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.chat_bubble_outline_rounded, size: 14, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(
+                "From Chat with ${msg.senderId}",
+                style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+              ),
+              const Spacer(),
+              Text(time, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            msg.content,
+            style: GoogleFonts.poppins(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
+          ),
+          if (msg.mediaUrl != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(msg.mediaUrl!, height: 150, width: double.infinity, fit: BoxFit.cover),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

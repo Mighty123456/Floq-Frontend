@@ -8,5 +8,8 @@ abstract class AuthRepository {
   Future<void> resetPassword(String email, String otp, String newPassword);
   Future<void> requestLoginOTP(String email);
   Future<AuthUser> loginViaOTP(String email, String otp);
+  Future<AuthUser> signInWithGoogle();
+  Future<AuthUser?> getAuthenticatedUser();
+  Future<void> logout();
 }
 

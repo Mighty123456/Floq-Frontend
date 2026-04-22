@@ -8,17 +8,13 @@ import '../bloc/auth_state.dart';
 import 'verify_otp_page.dart';
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
-import '../../data/repositories/auth_repository_impl.dart';
 
 class RegisterPage extends StatelessWidget {
   const RegisterPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AuthBloc(repository: AuthRepositoryImpl()),
-      child: const _RegisterView(),
-    );
+    return const _RegisterView();
   }
 }
 
@@ -142,15 +138,17 @@ class _RegisterViewState extends State<_RegisterView> {
                       Hero(
                         tag: 'logo',
                         child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
+                          padding: const EdgeInsets.all(0),
+                          decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            color: colorScheme.primary.withValues(alpha: 0.1),
                           ),
-                          child: Icon(
-                            Icons.chat_bubble_rounded,
-                            size: 60,
-                            color: colorScheme.primary,
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/icon.png',
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       ),

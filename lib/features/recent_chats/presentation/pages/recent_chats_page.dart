@@ -4,11 +4,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
 import '../../domain/entities/chat_session_entity.dart';
 import '../bloc/recent_chats_bloc.dart';
-import '../bloc/recent_chats_event.dart';
+
 import '../bloc/recent_chats_state.dart';
-import '../../data/repositories/recent_chats_repository_impl.dart';
+
 import '../../../../core/presentation/widgets/bouncy_button.dart';
 import '../../../../core/presentation/widgets/bubble_loader.dart';
+import '../../../../core/presentation/widgets/floq_avatar.dart';
 import '../../../chat/presentation/pages/saved_items_page.dart';
 import '../../../chat/presentation/pages/spam_inbox_page.dart';
 
@@ -18,10 +19,7 @@ class RecentChatsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => RecentChatsBloc(repository: MockRecentChatsRepository())..add(LoadRecentChatsRequested()),
-      child: const _RecentChatsView(),
-    );
+    return const _RecentChatsView();
   }
 }
 
@@ -58,6 +56,9 @@ class _RecentChatsViewState extends State<_RecentChatsView> {
           if (state.isLoading) {
             return const Center(child: BubbleLoader());
           }
+
+          final combinedChats = [...state.users, ...state.groups];
+          combinedChats.sort((a, b) => (b.lastMessageTime ?? DateTime(0)).compareTo(a.lastMessageTime ?? DateTime(0)));
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -107,26 +108,19 @@ class _RecentChatsViewState extends State<_RecentChatsView> {
                             padding: const EdgeInsets.only(right: 16),
                             child: Column(
                               children: [
-                                Stack(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 28,
-                                      backgroundImage: NetworkImage(user.profileUrl),
+                                FloqAvatar(
+                                  radius: 28,
+                                  name: user.name,
+                                  imageUrl: user.profileUrl,
+                                  overlay: Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: isDark ? const Color(0xFF121212) : Colors.white, width: 2),
                                     ),
-                                    Positioned(
-                                      right: 2,
-                                      bottom: 2,
-                                      child: Container(
-                                        width: 14,
-                                        height: 14,
-                                        decoration: BoxDecoration(
-                                          color: Colors.green,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: isDark ? const Color(0xFF121212) : Colors.white, width: 2),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
@@ -231,11 +225,17 @@ class _RecentChatsViewState extends State<_RecentChatsView> {
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final chat = state.users[index];
+                      final chat = combinedChats[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: BouncyButton(
-                          onTap: () => _openChat(chat),
+                          onTap: () {
+                            if (chat.isGroup) {
+                              // Group chat navigation can be added later
+                              return;
+                            }
+                            _openChat(chat);
+                          },
                           child: Container(
                             decoration: BoxDecoration(
                               color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -246,10 +246,11 @@ class _RecentChatsViewState extends State<_RecentChatsView> {
                             ),
                             child: ListTile(
                               contentPadding: const EdgeInsets.fromLTRB(16, 8, 20, 8),
-                              leading: CircleAvatar(
-                                radius: 28,
-                                backgroundImage: NetworkImage(chat.profileUrl),
-                              ),
+                                leading: FloqAvatar(
+                                  radius: 28,
+                                  name: chat.name,
+                                  imageUrl: chat.profileUrl,
+                                ),
                               title: Text(
                                 chat.name,
                                 style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
@@ -296,7 +297,7 @@ class _RecentChatsViewState extends State<_RecentChatsView> {
                         ),
                       );
                     },
-                    childCount: state.users.length,
+                    childCount: combinedChats.length,
                   ),
                 ),
               ),

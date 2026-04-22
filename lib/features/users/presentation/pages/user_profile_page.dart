@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/users_bloc.dart';
+import '../bloc/users_state.dart';
+import '../bloc/users_event.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../../../core/presentation/widgets/bouncy_button.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
-import '../../../feed/presentation/pages/story_view_page.dart';
+import '../../../feed/domain/entities/story_entity.dart';
 import '../../../feed/presentation/pages/story_group_view.dart';
 import 'edit_profile_page.dart';
-
-
+import 'connection_list_page.dart';
+import '../../../../core/presentation/widgets/floq_avatar.dart';
 
 class UserProfilePage extends StatefulWidget {
   final UserEntity user;
@@ -27,7 +31,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   void initState() {
     super.initState();
     _isMe = widget.user.id == 'me';
-    _tabController = TabController(length: _isMe ? 3 : 2, vsync: this);
+    _tabController = TabController(length: _isMe ? 4 : 3, vsync: this);
   }
 
   @override
@@ -85,184 +89,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     );
   }
 
-  void _showPostDetails(BuildContext context, int index, String imageUrl) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder( // Use StatefulBuilder for interactive icons
-        builder: (context, setSheetState) {
-          bool isLiked = false;
-          bool isBookmarked = false;
-
-          return DraggableScrollableSheet(
-            initialChildSize: 0.9,
-            minChildSize: 0.5,
-            maxChildSize: 0.95,
-            builder: (context, scrollController) => Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        // Header
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            radius: 20,
-                            backgroundImage: NetworkImage(widget.user.profileUrl),
-                          ),
-                          title: Text(widget.user.name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15)),
-                          subtitle: Text("2 hours ago", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.more_vert_rounded),
-                            onPressed: () {},
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // Main Post Image
-                        GestureDetector(
-                          onDoubleTap: () {
-                            setSheetState(() => isLiked = true);
-                            BubbleNotification.show(context, "Liked!", type: NotificationType.success);
-                          },
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: Image.network(imageUrl, fit: BoxFit.cover),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Interaction Bar (NOW ALL CLICKABLE)
-                        Row(
-                          children: [
-                            _buildInteractionIconButton(
-                              icon: isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, 
-                              label: isLiked ? "1,201" : "1,200", 
-                              color: isLiked ? Colors.redAccent : (isDark ? Colors.white : Colors.black87),
-                              onTap: () => setSheetState(() => isLiked = !isLiked),
-                            ),
-                            _buildInteractionIconButton(
-                              icon: Icons.chat_bubble_outline_rounded, 
-                              label: "85", 
-                              color: isDark ? Colors.white : Colors.black87,
-                              onTap: () => BubbleNotification.show(context, "Opening comments thread..."),
-                            ),
-                            _buildInteractionIconButton(
-                              icon: Icons.repeat_rounded, 
-                              label: "24", 
-                              color: Colors.greenAccent,
-                              onTap: () => BubbleNotification.show(context, "Recapping post to your feed"),
-                            ),
-                            const Spacer(),
-                            BouncyButton(
-                              onTap: () => setSheetState(() => isBookmarked = !isBookmarked),
-                              child: Icon(
-                                isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                                color: isBookmarked ? Colors.orangeAccent : (isDark ? Colors.white : Colors.black87),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        Text(
-                          "Exploring the hidden gems of the city today. The vibe is just incredible! ✨ #Floq #CityLife #Adventures",
-                          style: GoogleFonts.poppins(fontSize: 14, height: 1.5),
-                        ),
-                        const Divider(height: 48),
-                        
-                        // Comments Section
-                        Text("Comments (85)", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 24),
-                        _buildMockComment("alex_vibe", "Man this shot is amazing! 🔥"),
-                        _buildMockComment("sara_n", "Love those colors!"),
-                        _buildMockComment("creative_cat", "Need to visit this place soon."),
-                        const SizedBox(height: 40),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-      ),
-    );
-  }
-
-  Widget _buildInteractionIconButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 20),
-      child: BouncyButton(
-        onTap: onTap,
-        child: Row(
-          children: [
-            Icon(icon, size: 24, color: color),
-            const SizedBox(width: 6),
-            Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMockComment(String user, String comment) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(radius: 14, backgroundImage: NetworkImage("https://i.pravatar.cc/100?u=$user")),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(user, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text(comment, style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[400])),
-              ],
-            ),
-          ),
-          const Icon(Icons.favorite_border_rounded, size: 14, color: Colors.grey),
-        ],
-      ),
-    );
-  }
-
-  void _showReelDetails(BuildContext context, int index, String imageUrl) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StoryViewPage(
-          userName: widget.user.name,
-          profileUrl: widget.user.profileUrl,
-          stories: [
-            StoryItem(url: imageUrl),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _showAccountSwitcherSheet() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -397,7 +224,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               ),
               _buildMenuItem(context, icon: Icons.bookmark_outline_rounded, label: "Saved Items", onTap: () {
                 Navigator.pop(context);
-                _tabController.animateTo(2);
+                _tabController.animateTo(3);
               }),
             ] else ...[
               _buildMenuItem(
@@ -471,11 +298,13 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           TextButton(
             onPressed: () {
+              context.read<UsersBloc>().add(ReportUserRequested(widget.user.id, "Profile violation"));
               Navigator.pop(context);
               BubbleNotification.show(context, "Report submitted successfully.", type: NotificationType.success);
             }, 
             child: const Text("Report", style: TextStyle(color: Colors.redAccent))
           ),
+
         ],
       ),
     );
@@ -491,11 +320,14 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           TextButton(
             onPressed: () {
+              context.read<UsersBloc>().add(BlockUserRequested(widget.user.id));
               Navigator.pop(context);
               BubbleNotification.show(context, "${widget.user.name} has been blocked.", type: NotificationType.info);
+              if (Navigator.canPop(context)) Navigator.pop(context); // Go back from profile
             }, 
             child: const Text("Block", style: TextStyle(color: Colors.redAccent))
           ),
+
         ],
       ),
     );
@@ -685,9 +517,20 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
-      body: CustomScrollView(
+    return BlocBuilder<UsersBloc, UsersState>(
+      builder: (context, state) {
+        // Resolve latest user state for relations
+        UserRelation relation = widget.user.relation;
+        try {
+          final updatedUser = state.users.firstWhere((u) => u.id == widget.user.id);
+          relation = updatedUser.relation;
+        } catch (_) {
+          // Fallback to widget user
+        }
+
+        return Scaffold(
+          backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+          body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
           // Sticky AppBar
@@ -759,10 +602,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                             child: CircleAvatar(
                               radius: 46,
                               backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
-                              child: CircleAvatar(
-                                radius: 43,
-                                backgroundImage: NetworkImage(widget.user.profileUrl),
-                              ),
+                              child: FloqAvatar(
+                              radius: 43,
+                              name: widget.user.name,
+                              imageUrl: widget.user.profileUrl,
+                            ),
                             ),
                           ),
                         ),
@@ -772,9 +616,23 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _buildCompactStat(context, "52", "Posts"),
-                            _buildCompactStat(context, "12.4k", "Followers"),
-                            _buildCompactStat(context, "850", "Following"),
+                            _buildCompactStat(context, "${widget.user.postsCount}", "Posts", onTap: () {
+                                _tabController.animateTo(0);
+                            }),
+                            _buildCompactStat(context, "${widget.user.followersCount}", "Followers", onTap: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => ConnectionListPage(
+                                  userId: widget.user.id,
+                                  userName: widget.user.name,
+                                  type: ConnectionListType.followers,
+                                )));
+                            }),
+                            _buildCompactStat(context, "${widget.user.followingCount}", "Following", onTap: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => ConnectionListPage(
+                                  userId: widget.user.id,
+                                  userName: widget.user.name,
+                                  type: ConnectionListType.following,
+                                )));
+                            }),
                           ],
                         ),
                       ),
@@ -792,22 +650,23 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    "Digital Creator • New York",
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.primary,
-                      letterSpacing: 0.3,
+                  if (widget.user.bio.isNotEmpty)
+                    Text(
+                      "Member since 2024", // Or more specific data if available
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.primary,
+                        letterSpacing: 0.3,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 12),
                   
                   // Bio
                   Text(
                     widget.user.bio.isNotEmpty 
                       ? widget.user.bio 
-                      : "Design enthusiast & tech explorer. Building the future of social interaction @Floq. Let's connect! 🚀",
+                      : (_isMe ? "Write something about yourself..." : "No bio yet."),
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       color: isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black54,
@@ -817,31 +676,37 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                   const SizedBox(height: 16),
 
                   // Links Carousel (Unique Scrollable Pills)
-                  SizedBox(
-                    height: 32,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      children: widget.user.links.isEmpty 
-                        ? [
-                            _buildMinimalLink(context, Icons.link_rounded, "Portfolio", Colors.blueAccent),
-                            _buildMinimalLink(context, Icons.chat_bubble_rounded, "WhatsApp", Colors.greenAccent),
-                            _buildMinimalLink(context, Icons.language_rounded, "blog.floq.me", Colors.purpleAccent),
-                          ]
-                        : widget.user.links.entries.map((e) {
-                            IconData icon = Icons.link_rounded;
-                            Color color = colorScheme.primary;
-                            if (e.key.toLowerCase().contains('whatsapp')) {
-                              icon = Icons.chat_bubble_rounded;
-                              color = Colors.greenAccent;
-                            } else if (e.key.toLowerCase().contains('portfolio')) {
-                              icon = Icons.grid_view_rounded;
-                              color = Colors.blueAccent;
-                            }
-                            return _buildMinimalLink(context, icon, e.value, color);
-                          }).toList(),
+                  if (widget.user.links.isNotEmpty || _isMe)
+                    SizedBox(
+                      height: 32,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        children: widget.user.links.isEmpty 
+                          ? [
+                              if (_isMe)
+                                _buildMinimalLink(context, Icons.add_circle_outline_rounded, "Add Link", colorScheme.primary, onTap: () {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfilePage(user: widget.user)));
+                                }),
+                            ]
+                          : widget.user.links.entries.map((e) {
+                              IconData icon = Icons.link_rounded;
+                              Color color = colorScheme.primary;
+                              final key = e.key.toLowerCase();
+                              if (key.contains('whatsapp')) {
+                                icon = Icons.chat_bubble_rounded;
+                                color = Colors.greenAccent;
+                              } else if (key.contains('portfolio')) {
+                                icon = Icons.grid_view_rounded;
+                                color = Colors.blueAccent;
+                              } else if (key.contains('twitter') || key.contains('x.com')) {
+                                icon = Icons.alternate_email_rounded;
+                                color = Colors.lightBlueAccent;
+                              }
+                              return _buildMinimalLink(context, icon, e.key, color, subLabel: e.value);
+                            }).toList(),
+                      ),
                     ),
-                  ),
                   
                   const SizedBox(height: 24),
                   
@@ -858,28 +723,34 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                                   builder: (_) => EditProfilePage(user: widget.user)
                                 )
                               );
-                            } else if (widget.user.relation != UserRelation.accepted) {
-                               BubbleNotification.show(
-                                context,
-                                "Invitation sent to ${widget.user.name}",
-                                type: NotificationType.success,
-                              );
+                            } else {
+                               if (relation == UserRelation.accepted) {
+                                  // context.read<UsersBloc>().add(UnfollowUser(widget.user.id));
+                                  BubbleNotification.show(context, "You are already connected.");
+                               } else {
+                                  context.read<UsersBloc>().add(SendRequest(widget.user.id));
+                                  BubbleNotification.show(
+                                    context,
+                                    "Invitation sent to ${widget.user.name}",
+                                    type: NotificationType.success,
+                                  );
+                               }
                             }
                           },
                           child: Container(
                             height: 42,
                             decoration: BoxDecoration(
-                              color: (_isMe || widget.user.relation == UserRelation.accepted) ? (isDark ? Colors.white12 : Colors.grey[200]) : colorScheme.primary,
+                              color: (_isMe || relation == UserRelation.accepted) ? (isDark ? Colors.white12 : Colors.grey[200]) : colorScheme.primary,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Center(
                               child: Text(
                                 _isMe 
                                   ? "Edit Profile" 
-                                  : (widget.user.relation == UserRelation.accepted ? "Message" : "Connect"),
+                                  : (relation == UserRelation.accepted ? "Message" : "Connect"),
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
-                                  color: (_isMe || widget.user.relation == UserRelation.accepted) ? (isDark ? Colors.white : Colors.black) : Colors.white, 
+                                  color: (_isMe || relation == UserRelation.accepted) ? (isDark ? Colors.white : Colors.black) : Colors.white, 
                                   fontWeight: FontWeight.bold
                                 ),
                               ),
@@ -941,7 +812,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: 6,
+                itemCount: _isMe ? 1 : 0,
                 itemBuilder: (context, index) {
                   final labels = ["Travel", "Vibes", "Food", "Tech", "Art", "Memories"];
                    if (index == 0) {
@@ -968,22 +839,27 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                     padding: const EdgeInsets.only(right: 18),
                     child: GestureDetector(
                       onTap: () {
-                        final highlightGroups = List.generate(labels.length, (lIndex) => {
-                          "userName": labels[lIndex],
-                          "profileUrl": widget.user.profileUrl,
-                          "stories": [
-                            StoryItem(url: "https://picsum.photos/seed/highlight${widget.user.id}${lIndex}_1/800/1200"),
-                            StoryItem(url: "https://picsum.photos/seed/highlight${widget.user.id}${lIndex}_2/800/1200"),
-                            StoryItem(url: "https://picsum.photos/seed/highlight${widget.user.id}${lIndex}_3/800/1200"),
+                        final highlightGroups = List.generate(labels.length, (lIndex) => StoryGroupEntity(
+                          userId: widget.user.id,
+                          userName: labels[lIndex],
+                          userAvatar: widget.user.profileUrl,
+                          stories: [
+                            StoryEntity(
+                              id: "h_${lIndex}_1",
+                              mediaUrl: "https://picsum.photos/seed/highlight${widget.user.id}${lIndex}_1/800/1200",
+                              caption: "",
+                              type: "image",
+                              createdAt: DateTime.now(),
+                            ),
                           ],
-                        });
+                        ));
 
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => StoryGroupView(
-                              userStories: highlightGroups,
-                              initialUserIndex: index - 1,
+                              storyGroups: highlightGroups,
+                              initialGroupIndex: index - 1,
                             ),
                           ),
                         );
@@ -1030,6 +906,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                 tabs: [
                   const Tab(icon: Icon(Icons.grid_on_rounded, size: 22)),
                   const Tab(icon: Icon(Icons.play_circle_outline_rounded, size: 22)),
+                  const Tab(icon: Icon(Icons.account_box_outlined, size: 22)),
                   if (_isMe) const Tab(icon: Icon(Icons.bookmark_outline_rounded, size: 22)),
                 ],
               ),
@@ -1044,18 +921,21 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               children: [
                 _buildPostsGrid(isDark),
                 _buildReelsGrid(isDark),
+                _buildTaggedGrid(isDark),
                 if (_isMe) _buildSavedGrid(isDark),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
+    },
+  );
+}
 
-  Widget _buildCompactStat(BuildContext context, String value, String label) {
+  Widget _buildCompactStat(BuildContext context, String value, String label, {VoidCallback? onTap}) {
     return BouncyButton(
-      onTap: () => BubbleNotification.show(context, "Viewing $label history..."),
+      onTap: onTap ?? () => BubbleNotification.show(context, "Viewing $label history..."),
       child: Column(
         children: [
           Text(
@@ -1071,12 +951,12 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     );
   }
 
-  Widget _buildMinimalLink(BuildContext context, IconData icon, String label, Color color) {
+  Widget _buildMinimalLink(BuildContext context, IconData icon, String label, Color color, {VoidCallback? onTap, String? subLabel}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: BouncyButton(
-        onTap: () => BubbleNotification.show(context, "Opening link: $label"),
+        onTap: onTap ?? () => BubbleNotification.show(context, "Opening link: ${subLabel ?? label}"),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -1105,118 +985,46 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   }
 
   Widget _buildPostsGrid(bool isDark) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(1),
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 1.5,
-        crossAxisSpacing: 1.5,
-        childAspectRatio: 1,
-      ),
-      itemCount: 15,
-      itemBuilder: (context, index) {
-        final imageUrl = "https://picsum.photos/seed/post${widget.user.id}$index/300/300";
-        return GestureDetector(
-          onTap: () => _showPostDetails(context, index, imageUrl),
-          child: Container(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[200],
-            child: Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-            ),
-          ),
-        );
-      },
-    );
+    return _buildEmptyTabState(isDark, Icons.grid_on_rounded, "No posts yet");
   }
 
   Widget _buildReelsGrid(bool isDark) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(1),
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 1.5,
-        crossAxisSpacing: 1.5,
-        childAspectRatio: 0.6,
-      ),
-      itemCount: 9,
-      itemBuilder: (context, index) {
-        final imageUrl = "https://picsum.photos/seed/reel${widget.user.id}$index/400/700";
-        return GestureDetector(
-          onTap: () => _showReelDetails(context, index, imageUrl),
-          child: Stack(
-            fit: StackFit.expand,
+    return _buildEmptyTabState(isDark, Icons.video_library_rounded, "No reels yet");
+  }
+
+  Widget _buildSavedGrid(bool isDark) {
+    return _buildEmptyTabState(isDark, Icons.bookmark_border_rounded, "No saved items");
+  }
+
+  Widget _buildTaggedGrid(bool isDark) {
+    return _buildEmptyTabState(isDark, Icons.account_box_outlined, "No tagged posts yet");
+  }
+
+  Widget _buildEmptyTabState(bool isDark, IconData icon, String message) {
+    return Center(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(), // Centering works better if we don't allow scroll usually, but here we want to avoid crash
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-              ),
-              Positioned(
-                bottom: 8,
-                left: 8,
-                child: Row(
-                  children: [
-                    const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
-                    const SizedBox(width: 2),
-                    Text(
-                      "${(index + 1) * 2}k",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                    ),
-                  ],
+              Icon(icon, size: 60, color: Colors.grey.withValues(alpha: 0.3)),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  color: Colors.grey,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSavedGrid(bool isDark) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(1),
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 1.5,
-        crossAxisSpacing: 1.5,
-        childAspectRatio: 1,
+        ),
       ),
-      itemCount: 12,
-      itemBuilder: (context, index) {
-        final imageUrl = "https://picsum.photos/seed/saved$index/300/300";
-        return GestureDetector(
-          onTap: () {
-            if (index % 3 == 0) {
-              _showReelDetails(context, index, imageUrl);
-            } else {
-              _showPostDetails(context, index, imageUrl);
-            }
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[200],
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                ),
-                if (index % 3 == 0) // Mock reels in saved
-                  const Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Icon(Icons.play_circle_outline_rounded, color: Colors.white, size: 20),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

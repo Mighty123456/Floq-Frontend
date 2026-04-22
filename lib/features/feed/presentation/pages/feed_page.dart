@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'story_view_page.dart';
+import 'package:image_picker/image_picker.dart';
 import 'story_group_view.dart';
-import '../../../users/presentation/pages/users_page.dart';
-
+import '../../../../core/services/secure_storage_service.dart';
+import 'dart:convert';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/feed_bloc.dart';
+import '../bloc/feed_event.dart';
+import '../bloc/feed_state.dart';
+import '../../domain/entities/story_entity.dart';
+import '../../domain/entities/post_entity.dart';
+import '../../../../core/presentation/widgets/bubble_loader.dart';
+import '../../../../core/presentation/widgets/floq_avatar.dart';
+import '../../../../core/presentation/widgets/bubble_notification.dart';
+import 'comments_bottom_sheet.dart';
 
 class FeedPage extends StatefulWidget {
+
   const FeedPage({super.key});
 
   @override
@@ -13,6 +25,28 @@ class FeedPage extends StatefulWidget {
 }
 
 class _FeedPageState extends State<FeedPage> {
+  String _currentUserAvatar = "https://i.pravatar.cc/150?u=my_story";
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      context.read<FeedBloc>().add(LoadMoreFeedRequested());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   void _showZoomedImage(BuildContext context, String imageUrl, String heroTag) {
     if (imageUrl.isEmpty) return;
     
@@ -49,145 +83,190 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  final List<Map<String, dynamic>> _mockPosts = [
-    {
-      "id": "1",
-      "userName": "Christopher Columbus",
-      "profileUrl": "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-      "timeAgo": "2h",
-      "content": "Just launched a new feature on the Floq platform! So excited to share this with everyone. Let me know your thoughts in the comments! 🚀💻",
-      "imageUrl": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80",
-      "likes": 124,
-      "comments": 18,
-      "isLiked": false,
-      "isSaved": false,
-    },
-    {
-      "id": "2",
-      "userName": "Emma Watson",
-      "profileUrl": "https://i.pravatar.cc/150?u=a042581f4e29026024d",
-      "timeAgo": "5h",
-      "content": "Exploring the beautiful landscapes and finding peace in nature today. Sometimes you just need to disconnect to reconnect. 🌲✨",
-      "imageUrl": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=600&q=80",
-      "likes": 532,
-      "comments": 45,
-      "isLiked": true,
-      "isSaved": true,
-    },
-    {
-      "id": "3",
-      "userName": "David Chen",
-      "profileUrl": "https://i.pravatar.cc/150?u=a04258114e29026702d",
-      "timeAgo": "1d",
-      "content": "Clean Architecture in Flutter is an absolute game changer. Finally untangled my entire state management mess! Highly recommend organizing your code by features rather than layers. 🏗️🔥",
-      "imageUrl": "",
-      "likes": 89,
-      "comments": 12,
-      "isLiked": false,
-      "isSaved": false,
-    },
-  ];
-
-  void _showCommentsSheet(BuildContext context, Map<String, dynamic> post, bool isDark) {
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
-    final List<Map<String, String>> mockComments = [
-      {"user": "Alice", "comment": "This looks incredible! 🤩"},
-      {"user": "Bob", "comment": "Great share, thanks for the info."},
-      {"user": "Charlie", "comment": "Awesome! Can't wait to see more."},
-    ];
+    
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+      body: BlocConsumer<FeedBloc, FeedState>(
+        listener: (context, state) {
+          if (state.error != null) {
+            BubbleNotification.show(
+              context,
+              state.error!,
+              type: NotificationType.error,
+            );
+          }
+        },
+        builder: (context, state) {
+          return RefreshIndicator(
+            onRefresh: () async {
+              context.read<FeedBloc>().add(RefreshFeedRequested());
+              await Future.delayed(const Duration(seconds: 1)); // Visual padding
+            },
+            color: colorScheme.primary,
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              slivers: [
+                SliverToBoxAdapter(child: _buildStorySection(state, isDark, colorScheme)),
+                _buildSuggestedNetwork(isDark, colorScheme),
+                
+                if (state.isLoading && state.posts.isEmpty)
+                  const SliverFillRemaining(
+                    child: Center(child: BubbleLoader()),
+                  )
+                else if (state.posts.isEmpty)
+                   SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.feed_outlined, size: 64, color: Colors.grey.withValues(alpha: 0.3)),
+                          const SizedBox(height: 16),
+                          const Text("Your feed is empty. Follow people to see posts!", style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final post = state.posts[index];
+                          return _buildUniquePostCard(post, isDark, colorScheme);
+                        },
+                        childCount: state.posts.length,
+                      ),
+                    ),
+                  ),
+                if (!state.hasReachedMax && state.posts.isNotEmpty)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: BubbleLoader()),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
+  Future<void> _loadUser() async {
+
+    final storage = SecureStorageService();
+    final userJson = await storage.getUser();
+    if (userJson != null) {
+      final map = jsonDecode(userJson);
+      if (mounted) {
+        setState(() {
+          _currentUserAvatar = map['avatar']?['url'] ?? "https://i.pravatar.cc/150?u=${map['id']}";
+        });
+      }
+    }
+    // Load real stories
+    if (mounted) {
+      context.read<FeedBloc>().add(LoadStoriesRequested());
+    }
+  }
+
+  Future<void> _pickAndUploadStory() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null && mounted) {
+      context.read<FeedBloc>().add(UploadStoryRequested(image.path));
+      BubbleNotification.show(context, "Uploading story...", type: NotificationType.info);
+    }
+  }
+
+  void _showPostOptions(BuildContext context, PostEntity post) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (bContext) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.share_rounded),
+              title: const Text("Share to..."),
+              onTap: () => Navigator.pop(bContext),
+            ),
+            ListTile(
+              leading: const Icon(Icons.report_problem_rounded, color: Colors.orange),
+              title: const Text("Report Post", style: TextStyle(color: Colors.orange)),
+              onTap: () {
+                Navigator.pop(bContext);
+                BubbleNotification.show(context, "Post reported", type: NotificationType.info);
+              },
+            ),
+            // Example of delete option (assuming UI is just visual for now, or add FeedEvent.DeletePostRequested if available)
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+              title: const Text("Delete Post", style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                Navigator.pop(bContext);
+                BubbleNotification.show(context, "Post deleted", type: NotificationType.success);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showHashtagFeed(String hashtag) {
+    // Navigate to a new Hashtag Feed Page or show a bottom sheet
+    // We will use a bottom sheet for a seamless experience
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
+      builder: (bContext) => Container(
+        height: MediaQuery.of(context).size.height * 0.9,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          color: Theme.of(context).scaffoldBackgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
         child: Column(
           children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
             const SizedBox(height: 16),
-            Text(
-              "Comments",
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const Divider(height: 32),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Text(hashtag, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+            const Divider(),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: mockComments.length,
-                itemBuilder: (context, index) {
-                  final comment = mockComments[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundImage: NetworkImage("https://i.pravatar.cc/150?u=${comment['user']}"),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(comment['user']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                              const SizedBox(height: 2),
-                              Text(
-                                comment['comment']!,
-                                style: TextStyle(
-                                  color: isDark ? Colors.white70 : Colors.black87,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text("2h ago • Reply", style: TextStyle(color: Colors.grey, fontSize: 10)),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.favorite_border_rounded, size: 14, color: Colors.grey),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 16),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: isDark ? Colors.white10 : Colors.black12)),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(radius: 16, backgroundImage: NetworkImage(post['profileUrl'])),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      style: const TextStyle(fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: "Add a comment...",
-                        border: InputBorder.none,
-                        hintStyle: TextStyle(color: Colors.grey[500]),
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text("Post", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+              child: BlocProvider(
+                create: (context) => FeedBloc(repository: context.read())..add(FetchHashtagFeedRequested(hashtag)),
+                child: BlocBuilder<FeedBloc, FeedState>(
+                  builder: (context, state) {
+                    if (state.isLoading) return const Center(child: BubbleLoader());
+                    if (state.posts.isEmpty) return const Center(child: Text("No posts found for this hashtag.", style: TextStyle(color: Colors.grey)));
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: state.posts.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: _buildUniquePostCard(state.posts[index], Theme.of(context).brightness == Brightness.dark, Theme.of(context).colorScheme),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -196,74 +275,21 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
-    
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          // Stories Section
-          SliverToBoxAdapter(
-            child: _buildStorySection(isDark, colorScheme),
-          ),
-
-
-
-          // Main Feed Posts
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final post = _mockPosts[index];
-                
-                // Insert suggested connections after the first post
-                if (index == 1) {
-                  return Column(
-                    children: [
-                      _buildSuggestedNetwork(isDark, colorScheme),
-                      _buildUniquePostCard(post, isDark, colorScheme),
-                    ],
-                  );
-                }
-                
-                return _buildUniquePostCard(post, isDark, colorScheme);
-              },
-              childCount: _mockPosts.length,
-            ),
-          ),
-          
-          // Bottom spacing for Navbar
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
-      ),
-    );
-  }
-
-  final List<Map<String, dynamic>> _mockStoryUsers = List.generate(10, (index) => {
-    "userName": index == 0 ? "Your Story" : "User $index",
-    "profileUrl": "https://i.pravatar.cc/150?u=story_$index",
-    "stories": [
-      StoryItem(url: "https://picsum.photos/seed/story_${index}_1/800/1200"),
-      StoryItem(url: "https://picsum.photos/seed/story_${index}_2/800/1200"),
-    ],
-  });
-
-  void _openStories(BuildContext context, int userIndex) {
+  void _openStories(BuildContext context, int index, List<StoryGroupEntity> stories) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => StoryGroupView(
-          userStories: _mockStoryUsers,
-          initialUserIndex: userIndex,
+          storyGroups: stories,
+          initialGroupIndex: index,
         ),
       ),
     );
   }
 
-  Widget _buildStorySection(bool isDark, ColorScheme colorScheme) {
+  Widget _buildStorySection(FeedState state, bool isDark, ColorScheme colorScheme) {
+    final stories = state.stories;
+    
     return Container(
       height: 110,
       margin: const EdgeInsets.symmetric(vertical: 16),
@@ -271,15 +297,13 @@ class _FeedPageState extends State<FeedPage> {
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _mockStoryUsers.length,
+        itemCount: stories.length + 1, // +1 for "Add Story" button
         itemBuilder: (context, index) {
-          final user = _mockStoryUsers[index];
-          
           if (index == 0) {
             return Padding(
               padding: const EdgeInsets.only(right: 16),
               child: GestureDetector(
-                onTap: () => _openStories(context, 0),
+                onTap: _pickAndUploadStory,
                 child: Column(
                   children: [
                     Stack(
@@ -293,10 +317,11 @@ class _FeedPageState extends State<FeedPage> {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(3),
-                            child: CircleAvatar(
-                              radius: 30,
-                              backgroundImage: NetworkImage(user["profileUrl"]),
-                            ),
+                          child: FloqAvatar(
+                            radius: 30,
+                            name: "Me",
+                            imageUrl: _currentUserAvatar,
+                          ),
                           ),
                         ),
                         Positioned(
@@ -315,17 +340,18 @@ class _FeedPageState extends State<FeedPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(user["userName"], style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500)),
+                    const Text("Your Story", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
             );
           }
 
+          final group = stories[index - 1];
           return Padding(
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
-              onTap: () => _openStories(context, index),
+              onTap: () => _openStories(context, index - 1, stories),
               child: Column(
                 children: [
                   Container(
@@ -348,16 +374,17 @@ class _FeedPageState extends State<FeedPage> {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(2),
-                          child: CircleAvatar(
+                          child: FloqAvatar(
                             radius: 28,
-                            backgroundImage: NetworkImage(user["profileUrl"]),
+                            name: group.userName,
+                            imageUrl: group.userAvatar,
                           ),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(user["userName"], style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500)),
+                  Text(group.userName, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
@@ -367,116 +394,15 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  Widget _buildSuggestedNetwork(bool isDark, ColorScheme colorScheme) {
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Discover new people",
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const UsersPage()),
-                  );
-                },
-                child: Text(
-                  "See all",
-                  style: GoogleFonts.poppins(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 200,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: 5,
-            itemBuilder: (context, index) {
-              return Container(
-                width: 150,
-                margin: const EdgeInsets.only(right: 12, bottom: 20, top: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
-                  ),
-                  boxShadow: [
-                    if (!isDark)
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 35,
-                      backgroundImage: NetworkImage("https://i.pravatar.cc/150?u=suggested_$index"),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      index % 2 == 0 ? "Dr. Strange" : "Wanda Maximoff",
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    Text(
-                      "Suggested for you",
-                      style: TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () {},
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          "Follow",
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+  Widget _buildSuggestedNetwork(bool isDark, ColorScheme colorScheme) {
+    return const SliverToBoxAdapter(child: SizedBox.shrink());
   }
 
-  Widget _buildUniquePostCard(Map<String, dynamic> post, bool isDark, ColorScheme colorScheme) {
-    final hasImage = post['imageUrl'].isNotEmpty;
-    
+  Widget _buildUniquePostCard(PostEntity post, bool isDark, ColorScheme colorScheme) {
+    final hasImage = post.mediaUrls.isNotEmpty;
+    final isRepost = post.repostOf != null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -485,16 +411,17 @@ class _FeedPageState extends State<FeedPage> {
           // Header
           Row(
             children: [
-              CircleAvatar(
+              FloqAvatar(
                 radius: 18,
-                backgroundImage: NetworkImage(post['profileUrl']),
+                name: post.userName,
+                imageUrl: post.userAvatar,
               ),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    post['userName'],
+                    post.userName,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -502,7 +429,7 @@ class _FeedPageState extends State<FeedPage> {
                     ),
                   ),
                   Text(
-                    post['timeAgo'],
+                    isRepost ? "shared a post" : "2h",
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 11,
@@ -513,18 +440,17 @@ class _FeedPageState extends State<FeedPage> {
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.more_vert_rounded, size: 20),
-                onPressed: () {},
+                onPressed: () => _showPostOptions(context, post),
               )
             ],
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Main Content Layer
           Stack(
             clipBehavior: Clip.none,
             children: [
-              // Content Background (Text or Image)
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -545,35 +471,49 @@ class _FeedPageState extends State<FeedPage> {
                     children: [
                       if (hasImage)
                         GestureDetector(
-                          onTap: () => _showZoomedImage(context, post['imageUrl'], 'feed_image_${post['id']}'),
+                          onTap: () => _showZoomedImage(context, post.mediaUrls[0], 'feed_image_${post.id}'),
                           child: Hero(
-                            tag: 'feed_image_${post['id']}',
+                            tag: 'feed_image_${post.id}',
                             child: Image.network(
-                              post['imageUrl'],
+                              post.mediaUrls[0],
                               width: double.infinity,
                               fit: BoxFit.cover,
                               height: 350,
                             ),
                           ),
                         ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(20, hasImage ? 20 : 24, 65, 24),
-                        child: Text(
-                          post['content'],
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            height: 1.6,
-                            letterSpacing: 0.2,
-                            color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black.withValues(alpha: 0.8),
+                      if (isRepost && post.repostOf != null)
+                        Container(
+                          margin: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  FloqAvatar(radius: 12, name: post.repostOf!.userName, imageUrl: post.repostOf!.userAvatar),
+                                  const SizedBox(width: 8),
+                                  Text(post.repostOf!.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(post.repostOf!.caption, style: const TextStyle(fontSize: 13)),
+                            ],
                           ),
                         ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(20, hasImage ? 20 : 24, 65, 24),
+                        child: _buildCaptionWithHashtags(post.caption, isDark, colorScheme),
                       ),
                     ],
                   ),
                 ),
               ),
-              
-              // Vertical Action Bar (Piercing the side)
+
               Positioned(
                 right: 12,
                 bottom: 20,
@@ -589,29 +529,33 @@ class _FeedPageState extends State<FeedPage> {
                   child: Column(
                     children: [
                       _buildActionIcon(
-                        icon: post['isLiked'] ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: post['isLiked'] ? Colors.redAccent : null,
-                        count: post['likes'].toString(),
+                        icon: post.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: post.isLiked ? Colors.redAccent : null,
+                        count: post.likesCount.toString(),
                         onTap: () {
-                          setState(() {
-                            post['isLiked'] = !post['isLiked'];
-                            post['likes'] += post['isLiked'] ? 1 : -1;
-                          });
+                          context.read<FeedBloc>().add(LikePostRequested(post.id));
                         },
                       ),
-                      const Divider(height: 10, indent: 4, endIndent: 4),
+                      const Divider(height: 1),
                       _buildActionIcon(
                         icon: Icons.chat_bubble_outline_rounded,
-                        count: post['comments'].toString(),
-                        onTap: () => _showCommentsSheet(context, post, isDark),
+                        count: post.commentsCount.toString(),
+                        onTap: () => _showCommentsBottomSheet(post),
                       ),
-                      const Divider(height: 10, indent: 4, endIndent: 4),
+                      const Divider(height: 1),
                       _buildActionIcon(
-                        icon: post['isSaved'] ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                        icon: Icons.repeat_rounded,
+                        count: post.repostsCount.toString(),
                         onTap: () {
-                          setState(() {
-                            post['isSaved'] = !post['isSaved'];
-                          });
+                          context.read<FeedBloc>().add(RepostRequested(post.id));
+                        },
+                      ),
+                      const Divider(height: 1),
+                      _buildActionIcon(
+                        icon: post.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                        color: post.isSaved ? colorScheme.primary : null,
+                        onTap: () {
+                          context.read<FeedBloc>().add(SavePostRequested(post.id));
                         },
                       ),
                     ],
@@ -625,11 +569,54 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
+  Widget _buildCaptionWithHashtags(String caption, bool isDark, ColorScheme colorScheme) {
+    if (caption.isEmpty) return const SizedBox.shrink();
+    
+    final List<TextSpan> children = [];
+    final List<String> words = caption.split(' ');
+
+    for (var word in words) {
+      if (word.startsWith('#')) {
+        children.add(
+          TextSpan(
+            text: '$word ',
+            style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => _showHashtagFeed(word),
+          ),
+        );
+      } else {
+        children.add(TextSpan(text: '$word '));
+      }
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: GoogleFonts.poppins(
+          fontSize: 15,
+          height: 1.6,
+          color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black.withValues(alpha: 0.8),
+        ),
+        children: children,
+      ),
+    );
+  }
+
+  void _showCommentsBottomSheet(PostEntity post) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CommentsBottomSheet(post: post),
+    );
+  }
+
+
   Widget _buildActionIcon({required IconData icon, Color? color, String? count, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Column(
           children: [
             Icon(icon, size: 22, color: color),
@@ -644,3 +631,4 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 }
+

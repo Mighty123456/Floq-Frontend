@@ -7,6 +7,9 @@ class UserProfileEntity {
   final bool isNotificationsEnabled;
   final bool showOnlineStatus;
   final bool allowFriendRequests;
+  final int followersCount;
+  final int followingCount;
+  final int postsCount;
 
   UserProfileEntity({
     required this.id,
@@ -17,6 +20,9 @@ class UserProfileEntity {
     this.isNotificationsEnabled = true,
     this.showOnlineStatus = true,
     this.allowFriendRequests = true,
+    this.followersCount = 0,
+    this.followingCount = 0,
+    this.postsCount = 0,
   });
 
   UserProfileEntity copyWith({
@@ -27,6 +33,9 @@ class UserProfileEntity {
     bool? isNotificationsEnabled,
     bool? showOnlineStatus,
     bool? allowFriendRequests,
+    int? followersCount,
+    int? followingCount,
+    int? postsCount,
   }) {
     return UserProfileEntity(
       id: id,
@@ -37,6 +46,9 @@ class UserProfileEntity {
       isNotificationsEnabled: isNotificationsEnabled ?? this.isNotificationsEnabled,
       showOnlineStatus: showOnlineStatus ?? this.showOnlineStatus,
       allowFriendRequests: allowFriendRequests ?? this.allowFriendRequests,
+      followersCount: followersCount ?? this.followersCount,
+      followingCount: followingCount ?? this.followingCount,
+      postsCount: postsCount ?? this.postsCount,
     );
   }
 }

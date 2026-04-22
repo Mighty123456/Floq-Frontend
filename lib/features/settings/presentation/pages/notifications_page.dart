@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/presentation/widgets/bouncy_button.dart';
-
 import '../../../../core/presentation/widgets/bubble_notification.dart';
+import '../bloc/notifications_bloc.dart';
+import '../bloc/notifications_event.dart';
+import '../bloc/notifications_state.dart';
+import '../../domain/entities/notification_entity.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -12,82 +16,13 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  // Mock notifications data with 'isRead' status
-  late List<Map<String, dynamic>> notifications;
 
-  @override
-  void initState() {
-    super.initState();
-    notifications = [
-      {
-        'id': '1',
-        'title': 'New Friend Request',
-        'body': 'Alex Rivera sent you a friend request.',
-        'time': '2 mins ago',
-        'icon': Icons.person_add_rounded,
-        'color': Colors.blue,
-        'isRead': false,
-      },
-      {
-        'id': '2',
-        'title': 'Message Received',
-        'body': 'Sarah Jenkins: Hey! Are we still meeting today?',
-        'time': '15 mins ago',
-        'icon': Icons.chat_bubble_rounded,
-        'color': Colors.green,
-        'isRead': false,
-      },
-      {
-        'id': '3',
-        'title': 'Emma Watson',
-        'body': 'Accepted your chat request.',
-        'time': '45 mins ago',
-        'icon': Icons.check_circle_rounded,
-        'color': Colors.teal,
-        'isRead': false,
-      },
-      {
-        'id': '4',
-        'title': 'Security Alert',
-        'body': 'Your password was changed successfully.',
-        'time': '1 hour ago',
-        'icon': Icons.security_rounded,
-        'color': Colors.orange,
-        'isRead': true,
-      },
-      {
-        'id': '5',
-        'title': 'System Update',
-        'body': 'Floq v2.0 is now available! Enjoy new features.',
-        'time': 'Yesterday',
-        'icon': Icons.system_update_rounded,
-        'color': Colors.purple,
-        'isRead': true,
-      },
-      {
-        'id': '6',
-        'title': 'Marcus Chen',
-        'body': 'Sent you a photo.',
-        'time': 'Yesterday',
-        'icon': Icons.image_rounded,
-        'color': Colors.pink,
-        'isRead': true,
-      },
-    ];
-
+  void _markAsRead(String id) {
+    context.read<NotificationsBloc>().add(MarkNotificationAsRead(id));
   }
 
-  void _markAsRead(int index) {
-    setState(() {
-      notifications[index]['isRead'] = true;
-    });
-  }
-
-  void _deleteNotification(int index) {
-
-    setState(() {
-      notifications.removeAt(index);
-    });
+  void _deleteNotification(String id) {
+    context.read<NotificationsBloc>().add(DeleteNotificationRequested(id));
     BubbleNotification.show(
       context,
       "Notification deleted",
@@ -96,28 +31,58 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   void _clearAll() {
-    if (notifications.isEmpty) return;
-    
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E1E) : Colors.white,
         title: const Text("Clear All"),
-        content: const Text("Are you sure you want to delete all notifications?"),
+        content: const Text("Are you sure you want to mark all as read?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
           TextButton(
             onPressed: () {
-              setState(() => notifications.clear());
-              Navigator.pop(ctx);
-              BubbleNotification.show(context, "All notifications cleared", type: NotificationType.success);
+               context.read<NotificationsBloc>().add(MarkAllNotificationsAsRead());
+               Navigator.pop(ctx);
+               BubbleNotification.show(context, "All marked as read", type: NotificationType.success);
             },
-            child: const Text("Clear All", style: TextStyle(color: Colors.red)),
+            child: const Text("Mark All Read", style: TextStyle(color: Colors.blue)),
           ),
         ],
       ),
     );
   }
+
+  IconData _getIcon(AppNotificationType type) {
+    switch (type) {
+      case AppNotificationType.like: return Icons.favorite_rounded;
+      case AppNotificationType.comment: return Icons.comment_rounded;
+      case AppNotificationType.follow: return Icons.person_add_rounded;
+      case AppNotificationType.mention: return Icons.alternate_email_rounded;
+      case AppNotificationType.repost: return Icons.repeat_rounded;
+      default: return Icons.notifications_rounded;
+    }
+  }
+
+  Color _getColor(AppNotificationType type) {
+    switch (type) {
+      case AppNotificationType.like: return Colors.redAccent;
+      case AppNotificationType.comment: return Colors.blueAccent;
+      case AppNotificationType.follow: return Colors.greenAccent;
+      case AppNotificationType.mention: return Colors.orangeAccent;
+      case AppNotificationType.repost: return Colors.purpleAccent;
+      default: return Colors.grey;
+    }
+  }
+
+  String _getTimeString(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    return '${diff.inDays}d';
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -126,135 +91,164 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        title: Text(
-          "Notifications",
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          if (notifications.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
-              onPressed: _clearAll,
-              tooltip: "Clear All",
-            ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: notifications.isEmpty
-          ? _buildEmptyState()
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-              physics: const BouncingScrollPhysics(),
-              itemCount: notifications.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final item = notifications[index];
-                final itemColor = item['color'] as Color;
-                final bool isRead = item['isRead'] as bool;
+      body: BlocBuilder<NotificationsBloc, NotificationsState>(
+        builder: (context, state) {
+          final notifications = state.notifications;
+          
+          return RefreshIndicator(
+            onRefresh: () async {
+              context.read<NotificationsBloc>().add(LoadNotificationsRequested());
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              slivers: [
+                SliverAppBar(
+                  floating: true,
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  title: Text(
+                    "Notifications",
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                  ),
+                  actions: [
+                    if (notifications.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.done_all_rounded, color: Colors.blueAccent),
+                        onPressed: _clearAll,
+                        tooltip: "Mark all as read",
+                      ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+                if (state.isLoading && notifications.isEmpty)
+                  const SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (notifications.isEmpty)
+                  SliverFillRemaining(child: _buildEmptyState())
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final item = notifications[index];
+                          final itemColor = _getColor(item.type);
+                          final bool isRead = item.isRead;
 
-                return Dismissible(
-                  key: Key(item['id'] as String),
-                  direction: DismissDirection.endToStart,
-                  onDismissed: (_) => _deleteNotification(index),
-                  background: Container(
-                    padding: const EdgeInsets.only(right: 20),
-                    alignment: Alignment.centerRight,
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                  ),
-                  child: BouncyButton(
-                    onTap: () => _markAsRead(index),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isRead 
-                              ? (isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1))
-                              : colorScheme.primary.withValues(alpha: 0.3),
-                          width: isRead ? 1 : 2,
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Stack(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Dismissible(
+                              key: Key(item.id),
+                              direction: DismissDirection.endToStart,
+                              onDismissed: (_) => _deleteNotification(item.id),
+                              background: Container(
+                                padding: const EdgeInsets.only(right: 20),
+                                alignment: Alignment.centerRight,
                                 decoration: BoxDecoration(
-                                  color: itemColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(15),
+                                  color: Colors.redAccent.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: Icon(item['icon'] as IconData, color: itemColor, size: 24),
+                                child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
                               ),
-                              if (!isRead)
-                                Positioned(
-                                  top: 0,
-                                  right: 0,
-                                  child: Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.primary,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: isDark ? const Color(0xFF1E1E1E) : Colors.white, width: 2),
+                              child: BouncyButton(
+                                onTap: () => _markAsRead(item.id),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: isRead 
+                                          ? (isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1))
+                                          : colorScheme.primary.withValues(alpha: 0.3),
+                                      width: isRead ? 1 : 2,
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      item['title'] as String,
-                                      style: GoogleFonts.poppins(
-                                        fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                                        fontSize: 16,
-                                        color: isRead ? Colors.grey : (isDark ? Colors.white : Colors.black87),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Stack(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: itemColor.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(15),
+                                            ),
+                                            child: Icon(_getIcon(item.type), color: itemColor, size: 24),
+                                          ),
+                                          if (!isRead)
+                                            Positioned(
+                                              top: 0,
+                                              right: 0,
+                                              child: Container(
+                                                width: 12,
+                                                height: 12,
+                                                decoration: BoxDecoration(
+                                                  color: colorScheme.primary,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: isDark ? const Color(0xFF1E1E1E) : Colors.white, width: 2),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                    ),
-                                    Text(
-                                      item['time'] as String,
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.grey,
-                                        fontSize: 11,
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Text(
+                                                  item.senderName,
+                                                  style: GoogleFonts.poppins(
+                                                    fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
+                                                    fontSize: 15,
+                                                    color: isRead ? Colors.grey : (isDark ? Colors.white : Colors.black87),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  _getTimeString(item.createdAt),
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.grey,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              item.content,
+                                              style: GoogleFonts.poppins(
+                                                color: isRead ? Colors.grey.withValues(alpha: 0.7) : Colors.grey[600],
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item['body'] as String,
-                                  style: GoogleFonts.poppins(
-                                    color: isRead ? Colors.grey.withValues(alpha: 0.7) : Colors.grey[600],
-                                    fontSize: 13,
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
+                          );
+                        },
+                        childCount: notifications.length,
                       ),
                     ),
                   ),
-                );
-              },
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              ],
             ),
+          );
+        },
+      ),
     );
+
   }
 
   Widget _buildEmptyState() {

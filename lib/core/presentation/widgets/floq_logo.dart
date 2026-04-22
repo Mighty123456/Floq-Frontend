@@ -19,6 +19,7 @@ class FloqLogo extends StatefulWidget {
 
 class _FloqLogoState extends State<FloqLogo> with TickerProviderStateMixin {
   late AnimationController _bounceController;
+  late AnimationController _rotateController;
   
   @override
   void initState() {
@@ -27,17 +28,23 @@ class _FloqLogoState extends State<FloqLogo> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
+    _rotateController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
   }
 
   @override
   void dispose() {
     _bounceController.dispose();
+    _rotateController.dispose();
     super.dispose();
   }
 
   void _handleTap() {
     if (!widget.isInteractive) return;
     _bounceController.forward(from: 0);
+    _rotateController.forward(from: 0);
   }
 
   @override
@@ -55,34 +62,39 @@ class _FloqLogoState extends State<FloqLogo> with TickerProviderStateMixin {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Core Logo Plate (Now using the real brand asset)
-                ScaleTransition(
-                  scale: Tween<double>(begin: 1.0, end: 1.15).animate(
-                    CurvedAnimation(parent: _bounceController, curve: Curves.elasticOut)
+                // Core Logo Plate
+                RotationTransition(
+                  turns: Tween<double>(begin: 0, end: 1).animate(
+                    CurvedAnimation(parent: _rotateController, curve: Curves.easeInOutBack)
                   ),
-                  child: Container(
-                    width: widget.size,
-                    height: widget.size,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(widget.size * 0.25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.primary.withValues(alpha: 0.2),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 1.0, end: 1.15).animate(
+                      CurvedAnimation(parent: _bounceController, curve: Curves.elasticOut)
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(widget.size * 0.25),
-                      child: Image.asset(
-                        'assets/icon.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Center(
-                          child: Icon(
-                            Icons.flight_rounded,
-                            size: widget.size * 0.6,
-                            color: colorScheme.primary,
+                    child: Container(
+                      width: widget.size,
+                      height: widget.size,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(widget.size * 0.25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(alpha: 0.2),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(widget.size * 0.25),
+                        child: Image.asset(
+                          'assets/icon.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Icon(
+                              Icons.diversity_3_rounded,
+                              size: widget.size * 0.6,
+                              color: colorScheme.primary,
+                            ),
                           ),
                         ),
                       ),

@@ -5,7 +5,7 @@ import '../bloc/users_bloc.dart';
 import '../bloc/users_event.dart';
 import '../bloc/users_state.dart';
 import '../../domain/entities/user_entity.dart';
-import '../../data/repositories/users_repository_impl.dart';
+
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bouncy_button.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
@@ -18,10 +18,9 @@ class RequestsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => UsersBloc(repository: MockUsersRepository())..add(LoadRequestsRequested()),
-      child: _RequestsView(onRequestAccepted: onRequestAccepted),
-    );
+    // Initial fetch from global bloc
+    context.read<UsersBloc>().add(LoadRequestsRequested());
+    return _RequestsView(onRequestAccepted: onRequestAccepted);
   }
 }
 
@@ -47,6 +46,7 @@ class _RequestsViewState extends State<_RequestsView> {
       "Connection established with $userName",
       type: NotificationType.success,
     );
+    _removeRequestFromList(userId);
   }
 
   void _declineRequest(BuildContext context, String userId, String userName) {
@@ -56,6 +56,23 @@ class _RequestsViewState extends State<_RequestsView> {
       "Request declined",
       type: NotificationType.success,
     );
+    _removeRequestFromList(userId);
+  }
+
+  void _removeRequestFromList(String userId) {
+    final index = _displayedRequests.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      final removedItem = _displayedRequests.removeAt(index);
+      _listKey.currentState?.removeItem(
+        index,
+        (context, animation) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final colorScheme = Theme.of(context).colorScheme;
+          return _buildAnimatedRequestCard(context, removedItem, index, animation, isDark, colorScheme);
+        },
+        duration: const Duration(milliseconds: 400),
+      );
+    }
   }
 
   @override

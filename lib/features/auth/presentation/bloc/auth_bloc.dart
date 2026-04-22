@@ -20,6 +20,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthResetPasswordRequested>(_onResetPasswordRequested);
     on<AuthLoginOTPRequested>(_onLoginOTPRequested);
     on<AuthVerifyLoginOTPRequested>(_onVerifyLoginOTPRequested);
+    on<AuthCheckRequested>(_onAuthCheckRequested);
+    on<AuthLogoutRequested>(_onLogoutRequested);
+    on<AuthGoogleSignInRequested>(_onGoogleSignInRequested);
   }
 
   Future<void> _onLoginRequested(
@@ -109,6 +112,48 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       final user = await repository.loginViaOTP(event.email, event.otp);
+      emit(AuthAuthenticated(user));
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> _onAuthCheckRequested(
+    AuthCheckRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    try {
+      final user = await repository.getAuthenticatedUser();
+      if (user != null) {
+        emit(AuthAuthenticated(user));
+      } else {
+        emit(AuthUnauthenticated());
+      }
+    } catch (e) {
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  Future<void> _onLogoutRequested(
+    AuthLogoutRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      await repository.logout();
+      emit(AuthUnauthenticated());
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> _onGoogleSignInRequested(
+    AuthGoogleSignInRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      final user = await repository.signInWithGoogle();
       emit(AuthAuthenticated(user));
     } catch (e) {
       emit(AuthError(e.toString()));

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import '../../domain/entities/story_entity.dart';
 import 'story_view_page.dart';
 
 class StoryGroupView extends StatefulWidget {
-  final List<Map<String, dynamic>> userStories;
-  final int initialUserIndex;
+  final List<StoryGroupEntity> storyGroups;
+  final int initialGroupIndex;
 
   const StoryGroupView({
     super.key,
-    required this.userStories,
-    required this.initialUserIndex,
+    required this.storyGroups,
+    required this.initialGroupIndex,
   });
 
   @override
@@ -21,7 +22,7 @@ class _StoryGroupViewState extends State<StoryGroupView> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: widget.initialUserIndex);
+    _pageController = PageController(initialPage: widget.initialGroupIndex);
   }
 
   @override
@@ -35,15 +36,15 @@ class _StoryGroupViewState extends State<StoryGroupView> {
     return PageView.builder(
       controller: _pageController,
       physics: const BouncingScrollPhysics(),
-      itemCount: widget.userStories.length,
+      itemCount: widget.storyGroups.length,
       itemBuilder: (context, index) {
-        final user = widget.userStories[index];
+        final group = widget.storyGroups[index];
         return StoryViewPage(
-          userName: user["userName"],
-          profileUrl: user["profileUrl"],
-          stories: user["stories"],
+          userName: group.userName,
+          profileUrl: group.userAvatar,
+          stories: group.stories,
           onAllStoriesComplete: () {
-            if (index < widget.userStories.length - 1) {
+            if (index < widget.storyGroups.length - 1) {
               _pageController.nextPage(
                 duration: const Duration(milliseconds: 500),
                 curve: Curves.easeInOutCubic,
@@ -52,8 +53,10 @@ class _StoryGroupViewState extends State<StoryGroupView> {
               Navigator.pop(context);
             }
           },
+          onClose: () => Navigator.pop(context),
         );
       },
     );
   }
 }
+

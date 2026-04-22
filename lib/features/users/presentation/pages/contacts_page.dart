@@ -5,26 +5,33 @@ import '../bloc/users_bloc.dart';
 import '../bloc/users_event.dart';
 import '../bloc/users_state.dart';
 import '../../domain/entities/user_entity.dart';
-import '../../data/repositories/users_repository_impl.dart';
+
 
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bouncy_button.dart';
 import 'user_profile_page.dart';
+import '../../../chat/presentation/pages/chat_page.dart';
 
 class ContactsPage extends StatelessWidget {
   const ContactsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => UsersBloc(repository: MockUsersRepository())..add(LoadContactsRequested()),
-      child: const _ContactsView(),
-    );
+    // We already have the Bloc provided globally, so we just trigger a load
+    context.read<UsersBloc>().add(LoadContactsRequested());
+    return const _ContactsView();
   }
 }
 
-class _ContactsView extends StatelessWidget {
+class _ContactsView extends StatefulWidget {
   const _ContactsView();
+
+  @override
+  State<_ContactsView> createState() => _ContactsViewState();
+}
+
+class _ContactsViewState extends State<_ContactsView> {
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +58,10 @@ class _ContactsView extends StatelessWidget {
               ),
             );
           }
+
+          final filteredContacts = state.contacts.where((c) {
+            return c.name.toLowerCase().contains(_searchQuery.toLowerCase());
+          }).toList();
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -105,6 +116,7 @@ class _ContactsView extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: TextField(
+                      onChanged: (val) => setState(() => _searchQuery = val),
                       decoration: InputDecoration(
                         hintText: "Search connections...",
                         hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
@@ -175,7 +187,7 @@ class _ContactsView extends StatelessWidget {
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final contact = state.contacts[index];
+                      final contact = filteredContacts[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: BouncyButton(
@@ -222,7 +234,18 @@ class _ContactsView extends StatelessWidget {
                                 children: [
                                   IconButton(
                                     icon: Icon(Icons.forum_outlined, color: colorScheme.primary, size: 20),
-                                    onPressed: () {},
+                                    onPressed: () {
+                                       Navigator.push(
+                                         context,
+                                         MaterialPageRoute(
+                                           builder: (_) => ChatPage(
+                                             chatWith: contact.name,
+                                             profileUrl: contact.profileUrl,
+                                             userId: contact.id,
+                                           ),
+                                         ),
+                                       );
+                                    },
                                   ),
                                   const Icon(Icons.more_vert_rounded, color: Colors.grey, size: 18),
                                 ],
@@ -232,7 +255,7 @@ class _ContactsView extends StatelessWidget {
                         ),
                       );
                     },
-                    childCount: state.contacts.length,
+                    childCount: filteredContacts.length,
                   ),
                 ),
               ),

@@ -627,9 +627,9 @@ class _OnboardingPageState extends State<OnboardingPage>
                           ],
                         ),
                         child: const Icon(
-                          Icons.auto_awesome_rounded,
+                          Icons.diversity_3_rounded,
                           color: Colors.white,
-                          size: 40,
+                          size: 44,
                         ),
                       ),
                     ),

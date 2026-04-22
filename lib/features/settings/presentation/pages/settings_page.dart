@@ -14,8 +14,14 @@ import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
 import '../../../../core/presentation/widgets/bouncy_button.dart';
 import 'notifications_page.dart';
+import 'blocked_users_page.dart';
 import '../../../../features/users/domain/entities/user_entity.dart';
 import '../../../../features/users/presentation/pages/user_profile_page.dart';
+import '../../../../features/users/presentation/bloc/users_bloc.dart';
+import '../../../../features/users/data/repositories/users_repository_impl.dart';
+import '../../../../features/feed/data/repositories/feed_repository_impl.dart';
+import '../../../../core/services/api_client.dart';
+
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -23,7 +29,7 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => SettingsBloc(repository: MockSettingsRepository())..add(LoadProfileRequested()),
+      create: (context) => SettingsBloc(repository: SettingsRepositoryImpl())..add(LoadProfileRequested()),
       child: const _SettingsView(),
     );
   }
@@ -49,78 +55,71 @@ class _SettingsViewState extends State<_SettingsView> {
       context: bContext,
       builder: (dialogContext) {
         final isDarkDialog = Theme.of(dialogContext).brightness == Brightness.dark;
+        final colorScheme = Theme.of(dialogContext).colorScheme;
 
-        return AlertDialog(
-          backgroundColor: isDarkDialog ? const Color(0xFF1E1E1E) : Colors.white,
-          title: Text("Edit Profile", 
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-              color: isDarkDialog ? Colors.white : Colors.black87,
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: "Name",
-                    labelStyle: TextStyle(color: isDarkDialog ? Colors.white70 : Colors.black54),
-                  ),
-                  style: TextStyle(color: isDarkDialog ? Colors.white : Colors.black87),
-                ),
-                TextField(
-                  controller: emailController,
-                  decoration: InputDecoration(
-                    labelText: "Email",
-                    labelStyle: TextStyle(color: isDarkDialog ? Colors.white70 : Colors.black54),
-                  ),
-                  style: TextStyle(color: isDarkDialog ? Colors.white : Colors.black87),
-                ),
-                TextField(
-                  controller: bioController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: "Bio",
-                    labelStyle: TextStyle(color: isDarkDialog ? Colors.white70 : Colors.black54),
-                  ),
-                  style: TextStyle(color: isDarkDialog ? Colors.white : Colors.black87),
-                ),
-                TextField(
-                  controller: linkController,
-                  decoration: InputDecoration(
-                    labelText: "Portfolio / WhatsApp Link",
-                    labelStyle: TextStyle(color: isDarkDialog ? Colors.white70 : Colors.black54),
-                  ),
-                  style: TextStyle(color: isDarkDialog ? Colors.white : Colors.black87),
-                ),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDarkDialog ? const Color(0xFF161616) : Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: isDarkDialog ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 40, offset: const Offset(0, 10))
               ],
             ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Edit Profile",
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: isDarkDialog ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildDialogTextField(controller: nameController, labelText: "Name", isDark: isDarkDialog, icon: Icons.person_outline_rounded),
+                  _buildDialogTextField(controller: emailController, labelText: "Email", isDark: isDarkDialog, icon: Icons.alternate_email_rounded),
+                  _buildDialogTextField(controller: bioController, labelText: "Bio", isDark: isDarkDialog, maxLines: 3, icon: Icons.notes_rounded),
+                  _buildDialogTextField(controller: linkController, labelText: "Portfolio / WhatsApp Link", isDark: isDarkDialog, icon: Icons.link_rounded),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: Text("Cancel", style: GoogleFonts.poppins(color: Colors.grey, fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(width: 8),
+                      BouncyButton(
+                        onTap: () {
+                          bContext.read<SettingsBloc>().add(
+                            UpdateProfileRequested(name: nameController.text, email: emailController.text)
+                          );
+                          Navigator.pop(dialogContext);
+                          BubbleNotification.show(context, "Profile & Bio updated", type: NotificationType.success);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [BoxShadow(color: colorScheme.primary.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
+                          ),
+                          child: Text("Save", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                bContext.read<SettingsBloc>().add(
-                  UpdateProfileRequested(
-                    name: nameController.text, 
-                    email: emailController.text,
-                  )
-                );
-                Navigator.pop(dialogContext);
-                 BubbleNotification.show(
-                  context,
-                  "Profile & Bio updated",
-                  type: NotificationType.success,
-                );
-              },
-              child: const Text("Save", style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("Cancel"),
-            ),
-          ],
         );
       },
     );
@@ -135,56 +134,65 @@ class _SettingsViewState extends State<_SettingsView> {
       context: bContext,
       builder: (dialogContext) {
         final isDarkDialog = Theme.of(dialogContext).brightness == Brightness.dark;
+        final colorScheme = Theme.of(dialogContext).colorScheme;
 
-        return AlertDialog(
-          backgroundColor: isDarkDialog ? const Color(0xFF1E1E1E) : Colors.white,
-          title: Text("Change Password", 
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-              color: isDarkDialog ? Colors.white : Colors.black87,
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDarkDialog ? const Color(0xFF161616) : Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: isDarkDialog ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 40, offset: const Offset(0, 10))
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Change Password",
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkDialog ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildDialogTextField(controller: oldPassController, labelText: "Current Password", isDark: isDarkDialog, obscureText: true, icon: Icons.lock_outline_rounded),
+                _buildDialogTextField(controller: newPassController, labelText: "New Password", isDark: isDarkDialog, obscureText: true, icon: Icons.lock_reset_rounded),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: Text("Cancel", style: GoogleFonts.poppins(color: Colors.grey, fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 8),
+                    BouncyButton(
+                      onTap: () {
+                        bContext.read<SettingsBloc>().add(ChangePasswordRequested(newPassController.text));
+                        Navigator.pop(dialogContext);
+                        BubbleNotification.show(context, "Password updated", type: NotificationType.success);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [BoxShadow(color: colorScheme.primary.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
+                        ),
+                        child: Text("Update", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: oldPassController,
-                decoration: InputDecoration(
-                  labelText: "Current Password",
-                  labelStyle: TextStyle(color: isDarkDialog ? Colors.white70 : Colors.black54),
-                ),
-                obscureText: true,
-                style: TextStyle(color: isDarkDialog ? Colors.white : Colors.black87),
-              ),
-              TextField(
-                controller: newPassController,
-                decoration: InputDecoration(
-                  labelText: "New Password",
-                  labelStyle: TextStyle(color: isDarkDialog ? Colors.white70 : Colors.black54),
-                ),
-                obscureText: true,
-                style: TextStyle(color: isDarkDialog ? Colors.white : Colors.black87),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                bContext.read<SettingsBloc>().add(ChangePasswordRequested(newPassController.text));
-                Navigator.pop(dialogContext);
-                BubbleNotification.show(
-                  context,
-                  "Password updated",
-                  type: NotificationType.success,
-                );
-              },
-              child: const Text("Update", style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("Cancel"),
-            ),
-          ],
         );
       },
     );
@@ -322,11 +330,11 @@ class _SettingsViewState extends State<_SettingsView> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildIdentityStat("128", "Posts"),
+                          _buildIdentityStat("${profile.postsCount}", "Posts"),
                           const SizedBox(width: 8),
-                          _buildIdentityStat("3.2k", "Connections"),
+                          _buildIdentityStat("${profile.followingCount}", "Following"),
                           const SizedBox(width: 8),
-                          _buildIdentityStat("940", "Pulse"),
+                          _buildIdentityStat("${profile.followersCount}", "Followers"),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -339,8 +347,11 @@ class _SettingsViewState extends State<_SettingsView> {
                                 user: UserEntity(
                                   id: 'me',
                                   name: profile.name,
-                                  profileUrl: 'https://i.pravatar.cc/150?u=me',
+                                  profileUrl: profile.profileImagePath.isNotEmpty ? profile.profileImagePath : 'assets/icon.png',
                                   relation: UserRelation.accepted,
+                                  followersCount: profile.followersCount,
+                                  followingCount: profile.followingCount,
+                                  postsCount: profile.postsCount,
                                 ),
                               ),
                             ),
@@ -389,7 +400,21 @@ class _SettingsViewState extends State<_SettingsView> {
                     _buildSectionHeader(context, "How others can interact with you"),
                     _buildSettingsTile(context, icon: Icons.chat_bubble_outline_rounded, title: "Messages & Replies", onTap: (){}),
                     _buildSettingsTile(context, icon: Icons.alternate_email_rounded, title: "Tags & Mentions", onTap: (){}),
-                    _buildSettingsTile(context, icon: Icons.block_rounded, title: "Blocked Accounts", onTap: (){}),
+                    _buildSettingsTile(context, icon: Icons.block_rounded, title: "Blocked Accounts", onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BlocProvider(
+                            create: (context) => UsersBloc(
+                              repository: UsersRepositoryImpl(context.read<ApiClient>()),
+                              feedRepository: FeedRepositoryImpl(context.read<ApiClient>()),
+                            ),
+                            child: const BlockedUsersPage(),
+                          ),
+                        ),
+                      );
+                    }),
+
 
                     const SizedBox(height: 32),
                     _buildSectionHeader(context, "What you see"),
@@ -445,6 +470,44 @@ class _SettingsViewState extends State<_SettingsView> {
     );
   }
 
+
+  Widget _buildDialogTextField({
+    required TextEditingController controller,
+    required String labelText,
+    required bool isDark,
+    bool obscureText = false,
+    int maxLines = 1,
+    IconData? icon,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+        ),
+        child: TextField(
+          controller: controller,
+          obscureText: obscureText,
+          maxLines: maxLines,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+          decoration: InputDecoration(
+            labelText: labelText,
+            labelStyle: GoogleFonts.poppins(fontSize: 12, color: isDark ? Colors.white54 : Colors.black54),
+            prefixIcon: icon != null ? Icon(icon, size: 20, color: colorScheme.primary.withValues(alpha: 0.7)) : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            floatingLabelBehavior: FloatingLabelBehavior.auto,
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(

@@ -23,6 +23,7 @@ import '../../domain/entities/message_entity.dart';
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
 import '../widgets/premium_sticker_keyboard.dart';
+import '../../../../core/presentation/widgets/floq_avatar.dart';
 
 
 class ChatPage extends StatelessWidget {
@@ -43,14 +44,15 @@ class ChatPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ChatBloc(repository: MockChatRepository()),
+      create: (context) => ChatBloc(
+        repository: context.read<ChatRepositoryImpl>(),
+      )..add(LoadMessages(userId)),
       child: _ChatView(
         chatWith: chatWith,
         profileUrl: profileUrl,
         phoneNumber: phoneNumber,
         userId: userId,
       ),
-
     );
   }
 }
@@ -86,9 +88,15 @@ class _ChatViewState extends State<_ChatView> {
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(_onTextChanged);
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) setState(() => _showEmojiPicker = false);
     });
+  }
+
+  void _onTextChanged() {
+    final bool isTyping = _messageController.text.isNotEmpty;
+    context.read<ChatBloc>().add(UpdateTypingStatus(widget.userId, isTyping));
   }
 
   @override
@@ -106,7 +114,7 @@ class _ChatViewState extends State<_ChatView> {
 
   void _handleSendText() {
     if (_messageController.text.trim().isEmpty) return;
-    context.read<ChatBloc>().add(SendTextMessage(_messageController.text));
+    context.read<ChatBloc>().add(SendTextMessage(_messageController.text, widget.userId));
     _messageController.clear();
   }
 
@@ -130,10 +138,10 @@ class _ChatViewState extends State<_ChatView> {
                 _attachItem(Icons.insert_drive_file, 'Document', _pickDocument),
                 _attachItem(Icons.location_on, 'Location', _pickLocation),
                 _attachItem(Icons.person, 'Contact', _pickContact),
-                _attachItem(Icons.mic, 'Audio', () => context.read<ChatBloc>().add(SendAudioMessage())),
-                _attachItem(Icons.poll, 'Poll', () => context.read<ChatBloc>().add(SendPollMessage())),
-                _attachItem(Icons.event, 'Event', () => context.read<ChatBloc>().add(SendEventMessage())),
-                _attachItem(Icons.auto_awesome, 'AI Image', () => context.read<ChatBloc>().add(SendAIImageMessage())),
+                _attachItem(Icons.mic, 'Audio', () => context.read<ChatBloc>().add(SendAudioMessage(widget.userId))),
+                _attachItem(Icons.poll, 'Poll', () => context.read<ChatBloc>().add(SendPollMessage(widget.userId))),
+                _attachItem(Icons.event, 'Event', () => context.read<ChatBloc>().add(SendEventMessage(widget.userId))),
+                _attachItem(Icons.auto_awesome, 'AI Image', () => context.read<ChatBloc>().add(SendAIImageMessage(widget.userId))),
               ],
             ),
           ),
@@ -166,30 +174,30 @@ class _ChatViewState extends State<_ChatView> {
 
   Future<void> _pickImage() async {
     final img = await _picker.pickImage(source: ImageSource.gallery);
-    if (img != null && mounted) context.read<ChatBloc>().add(SendImageMessage(img.path));
+    if (img != null && mounted) context.read<ChatBloc>().add(SendImageMessage(img.path, widget.userId));
   }
 
   Future<void> _pickCameraImage() async {
     final img = await _picker.pickImage(source: ImageSource.camera);
-    if (img != null && mounted) context.read<ChatBloc>().add(SendImageMessage(img.path));
+    if (img != null && mounted) context.read<ChatBloc>().add(SendImageMessage(img.path, widget.userId));
   }
 
   Future<void> _pickDocument() async {
     final file = await FilePicker.platform.pickFiles();
-    if (file != null && mounted) context.read<ChatBloc>().add(SendDocumentMessage(file.files.single.name));
+    if (file != null && mounted) context.read<ChatBloc>().add(SendDocumentMessage(file.files.single.name, widget.userId));
   }
 
   Future<void> _pickLocation() async {
     await Geolocator.requestPermission();
     final pos = await Geolocator.getCurrentPosition();
-    if (mounted) context.read<ChatBloc>().add(SendLocationMessage(pos.latitude, pos.longitude));
+    if (mounted) context.read<ChatBloc>().add(SendLocationMessage(pos.latitude, pos.longitude, widget.userId));
   }
 
   Future<void> _pickContact() async {
     if (!await FlutterContacts.requestPermission()) return;
     final contacts = await FlutterContacts.getContacts(withProperties: true);
     if (contacts.isNotEmpty && mounted) {
-      context.read<ChatBloc>().add(SendContactMessage(contacts.first.displayName));
+      context.read<ChatBloc>().add(SendContactMessage(contacts.first.displayName, widget.userId));
     }
   }
 
@@ -254,7 +262,7 @@ class _ChatViewState extends State<_ChatView> {
       );
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
-        context.read<ChatBloc>().add(SendTextMessage("Sent a custom sticker 🎨"));
+        context.read<ChatBloc>().add(SendTextMessage("Sent a custom sticker 🎨", widget.userId));
         BubbleNotification.show(context, "Sticker added to your collection!", type: NotificationType.success);
       }
     }
@@ -262,8 +270,8 @@ class _ChatViewState extends State<_ChatView> {
 
   Widget _buildMediaKeyboard(bool isDark) {
     return PremiumStickerKeyboard(
-      onStickerSelected: (stkr) => context.read<ChatBloc>().add(SendImageMessage(stkr)),
-      onGifSelected: (gif) => context.read<ChatBloc>().add(SendImageMessage(gif)),
+      onStickerSelected: (stkr) => context.read<ChatBloc>().add(SendImageMessage(stkr, widget.userId)),
+      onGifSelected: (gif) => context.read<ChatBloc>().add(SendImageMessage(gif, widget.userId)),
       onCreateSticker: _createCustomSticker,
     );
   }
@@ -300,11 +308,10 @@ class _ChatViewState extends State<_ChatView> {
           children: [
             Hero(
               tag: 'user_image_${widget.userId}',
-              child: CircleAvatar(
+              child: FloqAvatar(
                 radius: 20,
-                backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
-                backgroundImage: widget.profileUrl.isNotEmpty ? NetworkImage(widget.profileUrl) : null,
-                child: widget.profileUrl.isEmpty ? Icon(Icons.person_rounded, color: colorScheme.primary) : null,
+                name: widget.chatWith,
+                imageUrl: widget.profileUrl,
               ),
             ),
             const SizedBox(width: 12),
@@ -322,22 +329,41 @@ class _ChatViewState extends State<_ChatView> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Row(
+                   Row(
                     children: [
-                      if (isOnline)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-                        ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _getUserStatus(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isOnline ? Colors.green : Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      BlocBuilder<ChatBloc, ChatState>(
+                        builder: (context, state) {
+                          if (state.isTyping) {
+                            return Text(
+                              'typing...',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            );
+                          }
+                          return Row(
+                            children: [
+                              if (isOnline)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                                ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _getUserStatus(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isOnline ? Colors.green : Colors.grey,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -357,10 +383,26 @@ class _ChatViewState extends State<_ChatView> {
           icon: Icon(Icons.videocam_outlined, color: isDark ? Colors.white70 : Colors.black87),
           onPressed: _makeVideoCall,
         ),
+        PopupMenuButton<String>(
+          icon: Icon(Icons.more_vert_rounded, color: isDark ? Colors.white70 : Colors.black87),
+          onSelected: (value) {
+            if (value == 'spam') {
+               context.read<ChatBloc>().add(MarkAsSpam(widget.userId));
+               BubbleNotification.show(context, "User reported for spam.", type: NotificationType.info);
+               Navigator.pop(context);
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'spam', child: Text("Report as Spam", style: TextStyle(color: Colors.redAccent))),
+            const PopupMenuItem(value: 'mute', child: Text("Mute Notifications")),
+            const PopupMenuItem(value: 'clear', child: Text("Clear Chat")),
+          ],
+        ),
         const SizedBox(width: 8),
       ],
     );
   }
+
 
   Widget _buildMessages(List<Message> messages, bool isDark, ColorScheme colorScheme) {
     if (messages.isEmpty) {
@@ -385,45 +427,110 @@ class _ChatViewState extends State<_ChatView> {
         final time = DateFormat('hh:mm a').format(msg.timestamp);
         final isMe = msg.senderId == 'me';
 
-        return Align(
-          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: Column(
-            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: isMe 
-                      ? colorScheme.primary 
-                      : (isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200),
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(20),
-                    topRight: const Radius.circular(20),
-                    bottomLeft: Radius.circular(isMe ? 20 : 5),
-                    bottomRight: Radius.circular(isMe ? 5 : 20),
+        return GestureDetector(
+          onLongPress: () => _showMessageOptions(msg),
+          child: Align(
+            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isMe 
+                        ? colorScheme.primary 
+                        : (isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(20),
+                      topRight: const Radius.circular(20),
+                      bottomLeft: Radius.circular(isMe ? 20 : 5),
+                      bottomRight: Radius.circular(isMe ? 5 : 20),
+                    ),
                   ),
-                  boxShadow: [],
-
+                  child: _buildMessageContent(msg, isMe),
                 ),
-                child: _buildMessageContent(msg, isMe),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
-                child: Text(
-                  time,
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        time,
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      ),
+                      if (isMe) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          msg.status == 'sent' ? Icons.done_rounded : Icons.done_all_rounded,
+                          size: 14,
+                          color: msg.status == 'read' ? Colors.blue : Colors.grey[500],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
     );
   }
 
+  void _showMessageOptions(Message msg) {
+    final isMe = msg.senderId == 'me';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(msg.isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded, color: Colors.blue),
+              title: Text(msg.isSaved ? "Remove from Saved" : "Save Message"),
+              onTap: () {
+                context.read<ChatBloc>().add(ToggleSaveMessage(msg.id, !msg.isSaved));
+                Navigator.pop(context);
+                BubbleNotification.show(context, msg.isSaved ? "Removed from collection" : "Message saved!", type: NotificationType.success);
+              },
+            ),
+            if (msg.type == MessageType.text)
+              ListTile(
+                leading: const Icon(Icons.copy_rounded),
+                title: const Text("Copy Text"),
+                onTap: () {
+                  // Clipboard logic
+                  Navigator.pop(context);
+                },
+              ),
+            if (isMe)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                title: const Text("Delete for Everyone", style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  context.read<ChatBloc>().add(DeleteMessage(msg.id, receiverId: widget.userId));
+                  Navigator.pop(context);
+                },
+              ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+
   Widget _buildMessageContent(Message msg, bool isMe) {
+    final colorScheme = Theme.of(context).colorScheme;
     final TextStyle textStyle = GoogleFonts.poppins(
       color: isMe ? Colors.white : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
       fontSize: 15,
@@ -431,23 +538,37 @@ class _ChatViewState extends State<_ChatView> {
 
     switch (msg.type) {
       case MessageType.image:
+      case MessageType.ai:
+        final bool isNetwork = msg.mediaUrl != null || msg.content.startsWith('http');
+        final String url = msg.mediaUrl ?? msg.content;
+        
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: msg.content.startsWith('http') 
+              child: isNetwork
                 ? CachedNetworkImage(
-                    imageUrl: msg.content,
+                    imageUrl: url,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => const SizedBox(height: 150, child: Center(child: CircularProgressIndicator())),
                   )
-                : Image.file(File(msg.content), fit: BoxFit.cover),
+                : (File(url).existsSync() ? Image.file(File(url), fit: BoxFit.cover) : const Icon(Icons.broken_image)),
             ),
-
-            const SizedBox(height: 4),
-            if (msg.content.contains('/')) const Text("Image sent", style: TextStyle(fontSize: 12, color: Colors.white70)),
+            if (msg.type == MessageType.ai) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.auto_awesome, color: Colors.amber, size: 14),
+                  const SizedBox(width: 6),
+                  Text("AI Generated", style: GoogleFonts.poppins(fontSize: 10, color: isMe ? Colors.white70 : Colors.amber, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
           ],
         );
+
       case MessageType.document:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -463,6 +584,130 @@ class _ChatViewState extends State<_ChatView> {
             ),
           ],
         );
+
+      case MessageType.location:
+        final coords = msg.content.split(',');
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 120,
+              width: 200,
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(child: Icon(Icons.map_rounded, size: 48, color: Colors.blue)),
+            ),
+            const SizedBox(height: 8),
+            Text("📍 Shared Location", style: textStyle.copyWith(fontWeight: FontWeight.bold, fontSize: 13)),
+            Text("Lat: ${coords[0]}, Lng: ${coords[1]}", style: textStyle.copyWith(fontSize: 11, color: isMe ? Colors.white70 : Colors.grey)),
+          ],
+        );
+
+      case MessageType.contact:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: isMe ? Colors.white24 : Colors.blue.withValues(alpha: 0.1),
+              child: Icon(Icons.person_rounded, color: isMe ? Colors.white : Colors.blue, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(msg.content, style: textStyle.copyWith(fontWeight: FontWeight.bold)),
+                Text("Contact Card", style: textStyle.copyWith(fontSize: 11, color: isMe ? Colors.white70 : Colors.grey)),
+              ],
+            ),
+          ],
+        );
+
+      case MessageType.audio:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.mic_rounded, color: isMe ? Colors.white : colorScheme.primary),
+            const SizedBox(width: 12),
+            Container(
+              width: 120,
+              height: 2,
+              decoration: BoxDecoration(
+                color: isMe ? Colors.white38 : Colors.grey[300],
+                borderRadius: BorderRadius.circular(1),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: 0.6,
+                child: Container(color: isMe ? Colors.white : colorScheme.primary),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text("0:24", style: textStyle.copyWith(fontSize: 12)),
+          ],
+        );
+
+      case MessageType.poll:
+        final options = (msg.metadata?['options'] as List?) ?? [];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("📊 ${msg.content}", style: textStyle.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ...options.map((opt) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isMe ? Colors.white12 : Colors.black.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isMe ? Colors.white24 : Colors.black12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: Text(opt, style: textStyle.copyWith(fontSize: 13))),
+                  const Icon(Icons.radio_button_off_rounded, size: 16, color: Colors.grey),
+                ],
+              ),
+            )),
+          ],
+        );
+
+      case MessageType.event:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("📅 ${msg.content}", style: textStyle.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.calendar_month_rounded, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(msg.metadata?['date'] ?? '', style: textStyle.copyWith(fontSize: 12)),
+              ],
+            ),
+            Row(
+              children: [
+                const Icon(Icons.location_on_rounded, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(msg.metadata?['location'] ?? '', style: textStyle.copyWith(fontSize: 12)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Text("Join Event", style: textStyle.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: isMe ? Colors.white : colorScheme.primary)),
+            ),
+          ],
+        );
+
       default:
         return Text(msg.content, style: textStyle);
     }

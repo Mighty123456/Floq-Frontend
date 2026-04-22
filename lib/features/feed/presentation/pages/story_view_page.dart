@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../domain/entities/story_entity.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
-
-class StoryItem {
-  final String url;
-  final Duration duration;
-  StoryItem({required this.url, this.duration = const Duration(seconds: 5)});
-}
 
 class StoryViewPage extends StatefulWidget {
   final String userName;
   final String profileUrl;
-  final List<StoryItem> stories;
+  final List<StoryEntity> stories;
   final int initialIndex;
   final VoidCallback? onAllStoriesComplete;
+  final VoidCallback? onClose;
 
   const StoryViewPage({
     super.key,
@@ -22,7 +18,9 @@ class StoryViewPage extends StatefulWidget {
     required this.stories,
     this.initialIndex = 0,
     this.onAllStoriesComplete,
+    this.onClose,
   });
+
 
   @override
   State<StoryViewPage> createState() => _StoryViewPageState();
@@ -55,9 +53,10 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
   void _loadStory() {
     _progressController.stop();
     _progressController.reset();
-    _progressController.duration = widget.stories[_currentIndex].duration;
+    _progressController.duration = const Duration(seconds: 5); // Default for now
     _progressController.forward();
   }
+
 
   void _nextStory() {
     if (_currentIndex < widget.stories.length - 1) {
@@ -140,7 +139,7 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
             // Story Image
             Positioned.fill(
               child: Image.network(
-                widget.stories[_currentIndex].url,
+                widget.stories[_currentIndex].mediaUrl,
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -223,7 +222,7 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: widget.onClose ?? () => Navigator.pop(context),
                         ),
                       ],
                     ),

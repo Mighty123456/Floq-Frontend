@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/users_bloc.dart';
 import '../bloc/users_event.dart';
 import '../bloc/users_state.dart';
 import '../../domain/entities/user_entity.dart';
-import '../../data/repositories/users_repository_impl.dart';
+import '../../../../features/feed/domain/entities/post_entity.dart';
+
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bouncy_button.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
@@ -19,10 +21,7 @@ class UsersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => UsersBloc(repository: MockUsersRepository())..add(LoadUsersRequested()),
-      child: const _UsersView(),
-    );
+    return const _UsersView();
   }
 }
 
@@ -36,6 +35,28 @@ class _UsersView extends StatefulWidget {
 class _UsersViewState extends State<_UsersView> {
   final List<String> _categories = ["All", "Tech", "Design", "Gaming", "Music", "Nature", "Art"];
   int _selectedCategoryIndex = 0;
+  Timer? _debounce;
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (query.isNotEmpty) {
+        setState(() => _isSearching = true);
+        context.read<UsersBloc>().add(SearchUsersRequested(query));
+      } else {
+        setState(() => _isSearching = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,9 +66,20 @@ class _UsersViewState extends State<_UsersView> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       body: SafeArea(
-        child: BlocBuilder<UsersBloc, UsersState>(
+        child: BlocConsumer<UsersBloc, UsersState>(
+          listener: (context, state) {
+            if (state.errorMessage != null) {
+              BubbleNotification.show(
+                context,
+                state.errorMessage!,
+                type: NotificationType.error,
+              );
+            }
+          },
           builder: (context, state) {
-            if (state.isLoadingUsers) {
+            final displayUsers = _isSearching ? state.searchResults : state.users;
+
+            if (state.isLoadingUsers || (state.isLoadingSearch && _isSearching)) {
               return const Center(child: BubbleLoader());
             }
 
@@ -67,7 +99,7 @@ class _UsersViewState extends State<_UsersView> {
                           ),
                         const SizedBox(width: 8),
                         Text(
-                          "Explore",
+                          _isSearching ? "Search Results" : "Explore",
                           style: GoogleFonts.poppins(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -89,123 +121,162 @@ class _UsersViewState extends State<_UsersView> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: TextField(
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
                         decoration: InputDecoration(
-                          hintText: "Search people, groups, posts...",
+                          hintText: "Search people...",
                           hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
                           prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                          suffixIcon: _isSearching ? IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _isSearching = false);
+                            },
+                          ) : null,
                           border: InputBorder.none,
                         ),
                       ),
                     ),
                   ),
                 ),
-
-              // Categories
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      final isSelected = _selectedCategoryIndex == index;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: BouncyButton(
-                          onTap: () => setState(() => _selectedCategoryIndex = index),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: isSelected ? colorScheme.primary : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isSelected ? Colors.transparent : (isDark ? Colors.white10 : Colors.black.withValues(alpha:0.05)),
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _categories[index],
-                                style: GoogleFonts.poppins(
-                                  color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
+                
+                if (!_isSearching) ...[
+                  // Categories
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 40,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _categories.length,
+                        itemBuilder: (context, index) {
+                          final isSelected = _selectedCategoryIndex == index;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: BouncyButton(
+                              onTap: () => setState(() => _selectedCategoryIndex = index),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? colorScheme.primary : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected ? Colors.transparent : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _categories[index],
+                                    style: GoogleFonts.poppins(
+                                      color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
+                  // Suggested People Title
+                  _buildSectionTitle("People you may know", isDark),
+
+                  // Suggested People Horizontal List
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 180,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: state.users.length > 5 ? 5 : state.users.length,
+                        itemBuilder: (context, index) {
+                          final user = state.users[index];
+                          return _buildSuggestedPersonCard(context, user, isDark, colorScheme);
+                        },
+                      ),
+                    ),
+                  ),
+
+                  // Trending Channels Title
+                  _buildSectionTitle("Trending Channels", isDark),
+
+                  // Channels Carousel
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 140,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: 4,
+                        itemBuilder: (context, index) {
+                          return _buildChannelCard(index, isDark, colorScheme);
+                        },
+                      ),
+                    ),
+                  ),
+
+                  // Discovery Grid (Trending Media)
+                  _buildSectionTitle("Explore Media", isDark),
+
+                  if (state.isLoadingExplore && state.explorePosts.isEmpty)
+                    const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32), child: BubbleLoader())))
+                  else if (state.explorePosts.isEmpty)
+                    const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No trending media yet", style: TextStyle(color: Colors.grey)))))
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                      sliver: SliverGrid(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 0.8,
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-
-              // Suggested People Title
-              _buildSectionTitle("People you may know", isDark),
-
-              // Suggested People Horizontal List
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: state.users.length > 5 ? 5 : state.users.length,
-                    itemBuilder: (context, index) {
-                      final user = state.users[index];
-                      return _buildSuggestedPersonCard(context, user, isDark, colorScheme);
-                    },
-                  ),
-                ),
-              ),
-
-              // Trending Channels Title
-              _buildSectionTitle("Trending Channels", isDark),
-
-              // Channels Carousel
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 140,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: 4,
-                    itemBuilder: (context, index) {
-                      return _buildChannelCard(index, isDark, colorScheme);
-                    },
-                  ),
-                ),
-              ),
-
-              // Discovery Grid (Trending Media)
-              _buildSectionTitle("Explore Media", isDark),
-
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.8,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      return _buildMediaDiscoveryCard(index, isDark);
-                    },
-                    childCount: 6,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final post = state.explorePosts[index];
+                            return _buildMediaDiscoveryCard(index, post, isDark);
+                          },
+                          childCount: state.explorePosts.length,
+                        ),
+                      ),
+                    ),
+                ] else ...[
+                   // Search Results
+                   SliverPadding(
+                     padding: const EdgeInsets.symmetric(horizontal: 16),
+                     sliver: SliverList(
+                       delegate: SliverChildBuilderDelegate(
+                         (context, index) {
+                           final user = displayUsers[index];
+                           return ListTile(
+                             contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                             leading: CircleAvatar(
+                               radius: 24,
+                               backgroundImage: NetworkImage(user.profileUrl),
+                             ),
+                             title: Text(user.name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                             subtitle: Text(user.bio, maxLines: 1, overflow: TextOverflow.ellipsis),
+                             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfilePage(user: user))),
+                           );
+                         },
+                         childCount: state.searchResults.length,
+                       ),
+                     ),
+                   ),
+                ],
+              ],
+            );
+          },
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildSectionTitle(String title, bool isDark) {
     return SliverToBoxAdapter(
@@ -322,33 +393,60 @@ class _UsersViewState extends State<_UsersView> {
     );
   }
 
-  Widget _buildMediaDiscoveryCard(int index, bool isDark) {
+  Widget _buildMediaDiscoveryCard(int index, PostEntity post, bool isDark) {
+    final hasMedia = post.mediaUrls.isNotEmpty;
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.grey[200],
         borderRadius: BorderRadius.circular(20),
-        image: DecorationImage(
-          image: NetworkImage("https://picsum.photos/seed/media$index/400/500"),
+        image: hasMedia ? DecorationImage(
+          image: NetworkImage(post.mediaUrls[0]),
           fit: BoxFit.cover,
-        ),
+        ) : null,
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Row(
-              children: [
-                const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  "${index + 3}k",
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.black.withValues(alpha: 0.6),
+            ],
           ),
-        ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              bottom: 12,
+              left: 12,
+              child: Row(
+                children: [
+                  const Icon(Icons.favorite_rounded, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    "${post.likesCount}",
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            if (!hasMedia)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    post.caption,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

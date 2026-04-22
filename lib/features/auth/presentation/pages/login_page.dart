@@ -10,17 +10,14 @@ import '../bloc/auth_state.dart';
 import 'verify_otp_page.dart';
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
-import '../../data/repositories/auth_repository_impl.dart';
+import '../../../../core/services/secure_storage_service.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AuthBloc(repository: AuthRepositoryImpl()),
-      child: const _LoginView(),
-    );
+    return const _LoginView();
   }
 }
 
@@ -35,15 +32,31 @@ class _LoginViewState extends State<_LoginView> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final SecureStorageService _storage = SecureStorageService();
   bool _isPasswordVisible = false;
   bool _isFormValid = false;
   bool _isOTPLogin = false;
+  bool _rememberMe = true;
 
   @override
   void initState() {
     super.initState();
+    _loadPreferences();
     _emailController.addListener(_validateForm);
     _passwordController.addListener(_validateForm);
+  }
+
+  Future<void> _loadPreferences() async {
+    final savedEmail = await _storage.getSavedEmail();
+    final rememberMe = await _storage.getRememberMe();
+    
+    if (mounted) {
+      setState(() {
+        if (savedEmail != null && savedEmail.isNotEmpty) _emailController.text = savedEmail;
+        _rememberMe = rememberMe;
+      });
+      _validateForm();
+    }
   }
 
   void _validateForm() {
@@ -72,16 +85,29 @@ class _LoginViewState extends State<_LoginView> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
-      if (_isOTPLogin) {
-        context.read<AuthBloc>().add(AuthLoginOTPRequested(_emailController.text.trim()));
+      final email = _emailController.text.trim();
+      final authBloc = context.read<AuthBloc>();
+      
+      // Save preferences
+      await _storage.saveRememberMe(_rememberMe);
+      if (_rememberMe) {
+        await _storage.saveEmail(email);
       } else {
-        context.read<AuthBloc>().add(
-            AuthLoginRequested(_emailController.text.trim(), _passwordController.text.trim()));
+        await _storage.saveEmail('');
+      }
+
+      if (_isOTPLogin) {
+        authBloc.add(AuthLoginOTPRequested(email));
+      } else {
+        authBloc.add(
+            AuthLoginRequested(email, _passwordController.text.trim()));
       }
     }
   }
+
+
 
 
   @override
@@ -153,15 +179,17 @@ class _LoginViewState extends State<_LoginView> {
                       Hero(
                         tag: 'logo',
                         child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
+                          padding: const EdgeInsets.all(0),
+                          decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            color: colorScheme.primary.withValues(alpha: 0.1),
                           ),
-                          child: Icon(
-                            Icons.chat_bubble_rounded,
-                            size: 80,
-                            color: colorScheme.primary,
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/icon.png',
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       ),
@@ -278,9 +306,40 @@ class _LoginViewState extends State<_LoginView> {
                                 ),
                               ),
                             ],
+                            
+                            // Remember Me Checkbox
+                            Row(
+                              children: [
+                                SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: Checkbox(
+                                    value: _rememberMe,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _rememberMe = value ?? true;
+                                      });
+                                    },
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "Remember Me",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
 
                             // OTP Login Toggle
                             Row(
+
                               children: [
                                 Expanded(child: Divider(color: Colors.grey.withValues(alpha: 0.2))),
                                 Padding(
@@ -298,7 +357,7 @@ class _LoginViewState extends State<_LoginView> {
                               ],
                             ),
                             const SizedBox(height: 16),
-                            Center(
+                             Center(
                               child: TextButton.icon(
                                 onPressed: () {
                                   setState(() {
@@ -315,6 +374,42 @@ class _LoginViewState extends State<_LoginView> {
                                   style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.w600,
                                   ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Google Login Button
+                            SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: OutlinedButton(
+                                onPressed: state is AuthLoading ? null : () {
+                                  context.read<AuthBloc>().add(AuthGoogleSignInRequested());
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Image.network(
+                                      'https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png',
+                                      height: 24,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      "Continue with Google",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white : Colors.black87,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -400,3 +495,7 @@ class _LoginViewState extends State<_LoginView> {
   }
 }
 
+
+
+
+// tell me how much percent my backend implemented and frontend also 

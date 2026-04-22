@@ -7,12 +7,15 @@ import '../../../features/users/presentation/pages/contacts_page.dart';
 import '../../../features/users/presentation/pages/users_page.dart';
 import '../../../features/users/presentation/pages/requests_page.dart';
 import '../../../features/settings/presentation/pages/notifications_page.dart';
+import '../../../features/feed/domain/entities/story_entity.dart';
 import '../../../features/feed/presentation/pages/feed_page.dart';
 import '../../../features/feed/presentation/pages/create_post_page.dart';
 import '../../../features/feed/presentation/pages/story_view_page.dart';
 
 import '../../../features/users/presentation/pages/user_profile_page.dart';
 import '../../../features/users/domain/entities/user_entity.dart';
+import '../../../core/services/secure_storage_service.dart';
+import 'dart:convert';
 
 
 class HomePage extends StatefulWidget {
@@ -56,7 +59,29 @@ class _HomePageState extends State<HomePage> {
       )), // 5 -> Profile
     ];
 
+    _loadUser();
+  }
 
+  Future<void> _loadUser() async {
+    final storage = SecureStorageService();
+    final userJson = await storage.getUser();
+    if (userJson != null) {
+      final map = jsonDecode(userJson);
+      final id = map['id'] ?? map['_id'] ?? 'me';
+      final name = map['fullName'] ?? map['username'] ?? map['name'] ?? 'My Profile';
+      final avatar = map['avatar'] ?? "https://i.pravatar.cc/150?u=$id";
+      
+      if (mounted) {
+        setState(() {
+          _pages[5] = UserProfilePage(user: UserEntity(
+            id: 'me', // Keeping 'me' as id to maintain `_isMe` logic in UserProfilePage
+            name: name,
+            profileUrl: avatar,
+            relation: UserRelation.accepted,
+          ));
+        });
+      }
+    }
   }
 
 
@@ -139,7 +164,13 @@ class _HomePageState extends State<HomePage> {
                           userName: "Your Story",
                           profileUrl: "https://i.pravatar.cc/150?u=my_current_user",
                           stories: [
-                            StoryItem(url: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=800&q=80"),
+                            StoryEntity(
+                              id: "my_temp_story",
+                              mediaUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=800&q=80",
+                              caption: "",
+                              type: "image",
+                              createdAt: DateTime.now(),
+                            ),
                           ],
                         ),
                       ),
@@ -233,21 +264,10 @@ class _HomePageState extends State<HomePage> {
         centerTitle: false,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(Icons.search_rounded, 
-              color: isDark ? Colors.white70 : Colors.black87),
-            onPressed: () {
-              List<String> users = [];
-              showSearch(
-                context: context,
-                delegate: UserSearchDelegate(users: users),
-              );
-            },
-          ),
           Stack(
             children: [
               IconButton(
-                icon: Icon(Icons.notifications_none_rounded,
+                icon: Icon(Icons.notifications_none_rounded, 
                   color: isDark ? Colors.white70 : Colors.black87),
                 onPressed: () {
                   Navigator.push(
@@ -255,26 +275,25 @@ class _HomePageState extends State<HomePage> {
                     MaterialPageRoute(builder: (_) => const NotificationsPage()),
                   );
                 },
-
               ),
               if (notifications.isNotEmpty)
                 Positioned(
-                  right: 4,
-                  top: 4,
+                  right: 8,
+                  top: 8,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       color: Colors.redAccent,
                       shape: BoxShape.circle,
                       border: Border.all(color: isDark ? const Color(0xFF121212) : Colors.white, width: 1.5),
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                     child: Center(
                       child: Text(
                         notifications.length.toString(),
                         style: GoogleFonts.poppins(
                           color: Colors.white,
-                          fontSize: 9,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -282,6 +301,13 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
             ],
+          ),
+          IconButton(
+            icon: Icon(Icons.favorite_border_rounded, 
+              color: isDark ? Colors.white70 : Colors.black87),
+            onPressed: () {
+              // Future: Navigate to activity feed
+            },
           ),
           const SizedBox(width: 8),
         ],

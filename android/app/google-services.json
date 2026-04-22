@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "229445943321",
+    "project_id": "floq-f2151",
+    "storage_bucket": "floq-f2151.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:229445943321:android:df060abf8716e33f9f6a88",
+        "android_client_info": {
+          "package_name": "com.example.chatapplication"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "229445943321-ooja49sr1vdr9g2b992auquuvmrkatm4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.chatapplication",
+            "certificate_hash": "77b7c0eefe4d8e53c2317c9d0067a6400bfcce26"
+          }
+        },
+        {
+          "client_id": "229445943321-jh9mvarsag9huon220jotpkl8vi6q4fq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAE7ejpvanSFIo09fYLLpYUyBI33cA2TI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "229445943321-jh9mvarsag9huon220jotpkl8vi6q4fq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

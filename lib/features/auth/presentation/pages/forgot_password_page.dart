@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
-import '../../data/repositories/auth_repository_impl.dart';
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
 import 'reset_password_page.dart';
@@ -14,10 +13,7 @@ class ForgotPasswordPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AuthBloc(repository: AuthRepositoryImpl()),
-      child: const _ForgotPasswordView(),
-    );
+    return const _ForgotPasswordView();
   }
 }
 
