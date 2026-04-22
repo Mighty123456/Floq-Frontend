@@ -124,22 +124,19 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       // In google_sign_in 7.0.0+, initialization is mandatory
       await gsis.GoogleSignIn.instance.initialize();
-      
-      // The constructor is now private; use the singleton instance
-      // signIn() has been renamed to authenticate()
-      final gsis.GoogleSignInAccount googleUser = await gsis.GoogleSignIn.instance.authenticate();
-      
-      // googleUser.authentication is now a synchronous getter, not a Future
-      final gsis.GoogleSignInAuthentication googleAuth = googleUser.authentication;
-      
-      // accessToken is now separated from identity. Request it via authorizationClient.
-      final gsis.GoogleSignInClientAuthorization clientAuth = 
-          await gsis.GoogleSignIn.instance.authorizationClient.authorizeScopes(['email', 'profile']);
-      
-      // Send token to backend
+
+      // authenticate() returns the signed-in Google account
+      final gsis.GoogleSignInAccount googleUser =
+          await gsis.GoogleSignIn.instance.authenticate();
+
+      // authentication is a synchronous getter in v7.x
+      final gsis.GoogleSignInAuthentication googleAuth =
+          googleUser.authentication;
+
+      // Send only the idToken to backend — no need for authorizeScopes()
+      // which triggers a second re-auth flow and causes Error 16 on Android
       final response = await _apiClient.dio.post('/auth/google', data: {
         'idToken': googleAuth.idToken,
-        'accessToken': clientAuth.accessToken,
       });
 
       final data = response.data['data'];
