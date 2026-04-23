@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'dart:convert';
 import '../../domain/entities/post_entity.dart';
 import '../../domain/entities/comment_entity.dart';
 import '../../domain/entities/story_entity.dart';
@@ -15,9 +16,23 @@ class FeedRepositoryImpl implements FeedRepository {
   @override
   Future<List<PostEntity>> getFeed({int page = 1}) async {
     final response = await _apiClient.dio.get('/posts/feed', queryParameters: {'page': page});
-    if (response.data['success']) {
-      final List data = response.data['data'];
-      return data.map((json) => _parsePost(json)).toList();
+    if (response.data is Map && response.data['success'] == true) {
+      final data = response.data['data'];
+      if (data is List) {
+        return data.map((json) => _parsePost(json)).toList();
+      }
+    }
+    return [];
+  }
+
+  @override
+  Future<List<PostEntity>> getReels({int page = 1}) async {
+    final response = await _apiClient.dio.get('/posts/reels', queryParameters: {'page': page});
+    if (response.data is Map && response.data['success'] == true) {
+      final data = response.data['data'];
+      if (data is List) {
+        return data.map((json) => _parsePost(json)).toList();
+      }
     }
     return [];
   }
@@ -25,17 +40,49 @@ class FeedRepositoryImpl implements FeedRepository {
   @override
   Future<List<PostEntity>> getUserPosts(String userId) async {
     final response = await _apiClient.dio.get('/posts/user/$userId');
-    if (response.data['success']) {
-      final List data = response.data['data'];
-      return data.map((json) => _parsePost(json)).toList();
+    if (response.data is Map && response.data['success'] == true) {
+      final data = response.data['data'];
+      if (data is List) {
+        return data.map((json) => _parsePost(json)).toList();
+      }
     }
     return [];
   }
 
   @override
-  Future<PostEntity> createPost({required String caption, required List<String> mediaPaths}) async {
+  Future<PostEntity> createPost({
+    required String caption, 
+    required List<String> mediaPaths,
+    String? type,
+    Map<String, dynamic>? location,
+    Map<String, dynamic>? audioData,
+    Map<String, dynamic>? metadata,
+  }) async {
+    // If it's a story, route it to the stories endpoint
+    if (type == 'story') {
+       for (var path in mediaPaths) {
+         await uploadStory(
+           mediaPath: path, 
+           caption: caption,
+           location: location,
+           metadata: metadata
+         );
+       }
+       // Return a dummy post entity or fetch something, but stories aren't exactly posts.
+       // For now, we return a minimal entity.
+       return PostEntity(
+         id: 'temp', userId: 'me', userName: 'Me', userAvatar: '', 
+         caption: caption, mediaUrls: [], likesCount: 0, commentsCount: 0, 
+         createdAt: DateTime.now()
+       );
+    }
+
     final formData = FormData.fromMap({
       'caption': caption,
+      'type': type,
+      'location': location != null ? jsonEncode(location) : null,
+      'audioData': audioData != null ? jsonEncode(audioData) : null,
+      'metadata': metadata != null ? jsonEncode(metadata) : null,
     });
 
     for (var path in mediaPaths) {
@@ -117,16 +164,29 @@ class FeedRepositoryImpl implements FeedRepository {
   // Stories
   @override
   Future<List<StoryGroupEntity>> getStoryFeed() async {
-    final response = await _apiClient.dio.get('/stories/feed');
-    final List data = response.data;
-    return data.map((json) => _parseStoryGroup(json)).toList();
+    try {
+      final response = await _apiClient.dio.get('/stories/feed');
+      final data = response.data;
+      if (data is List) {
+        return data.map((json) => _parseStoryGroup(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 
   @override
-  Future<void> uploadStory({required String mediaPath, String? caption}) async {
+  Future<void> uploadStory({
+    required String mediaPath, 
+    String? caption,
+    Map<String, dynamic>? location,
+    Map<String, dynamic>? metadata,
+  }) async {
     final formData = FormData.fromMap({
-      // ignore: use_null_aware_elements
-      if (caption != null) 'caption': caption,
+      'caption': caption,
+      'location': location != null ? jsonEncode(location) : null,
+      'metadata': metadata != null ? jsonEncode(metadata) : null,
       'media': await MultipartFile.fromFile(mediaPath),
     });
     await _apiClient.dio.post('/stories/upload', data: formData);
@@ -143,7 +203,7 @@ class FeedRepositoryImpl implements FeedRepository {
     return StoryGroupEntity(
       userId: user['_id'],
       userName: user['fullName'] ?? user['username'] ?? 'Unknown',
-      userAvatar: user['avatar']?['url'] ?? '',
+      userAvatar: (user['avatar'] is Map) ? (user['avatar']['url'] ?? '') : (user['avatar'] ?? ''),
       stories: stories.map((s) => _parseStory(s)).toList(),
     );
   }
@@ -169,7 +229,7 @@ class FeedRepositoryImpl implements FeedRepository {
       id: json['_id'],
       userId: user['_id'],
       userName: user['fullName'] ?? user['username'] ?? 'Unknown',
-      userAvatar: user['avatar']?['url'] ?? '',
+      userAvatar: (user['avatar'] is Map) ? (user['avatar']['url'] ?? '') : (user['avatar'] ?? ''),
       caption: json['caption'] ?? '',
       mediaUrls: media.map((m) => m['url'].toString()).toList(),
       likesCount: json['likesCount'] ?? 0,
@@ -180,6 +240,7 @@ class FeedRepositoryImpl implements FeedRepository {
       repostOf: json['repostOf'] != null ? _parsePost(json['repostOf']) : null,
       repostsCount: json['repostsCount'] ?? 0,
       hashtags: List<String>.from(json['hashtags'] ?? []),
+      type: json['type'] ?? 'post',
     );
   }
 
@@ -189,7 +250,7 @@ class FeedRepositoryImpl implements FeedRepository {
       id: json['_id'],
       userId: user['_id'],
       userName: user['fullName'] ?? user['username'] ?? 'Unknown',
-      userAvatar: user['avatar']?['url'] ?? '',
+      userAvatar: (user['avatar'] is Map) ? (user['avatar']['url'] ?? '') : (user['avatar'] ?? ''),
       text: json['text'] ?? '',
       likesCount: json['likesCount'] ?? 0,
       createdAt: DateTime.parse(json['createdAt']),

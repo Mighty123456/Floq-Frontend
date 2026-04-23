@@ -21,7 +21,12 @@ class UserEntity {
     this.followersCount = 0,
     this.followingCount = 0,
     this.postsCount = 0,
+    this.email = '',
+    this.cameraSettings = const {'alwaysStartOnFrontCamera': false, 'toolbarSide': 'left'},
   });
+
+  final String email;
+  final Map<String, dynamic> cameraSettings;
 
   UserEntity copyWith({
     String? id,
@@ -33,6 +38,7 @@ class UserEntity {
     int? followersCount,
     int? followingCount,
     int? postsCount,
+    String? email,
   }) {
     return UserEntity(
       id: id ?? this.id,
@@ -44,6 +50,7 @@ class UserEntity {
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       postsCount: postsCount ?? this.postsCount,
+      email: email ?? this.email,
     );
   }
 

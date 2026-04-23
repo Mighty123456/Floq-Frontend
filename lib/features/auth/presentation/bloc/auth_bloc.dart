@@ -2,6 +2,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../../../core/services/api_client.dart';
+import 'dart:async';
 
 class VerificationRequiredException implements Exception {
   final String email;
@@ -11,8 +13,12 @@ class VerificationRequiredException implements Exception {
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository repository;
+  StreamSubscription? _logoutSubscription;
 
   AuthBloc({required this.repository}) : super(AuthInitial()) {
+    _logoutSubscription = ApiClient.logoutStream.listen((_) {
+      add(AuthLogoutRequested());
+    });
     on<AuthLoginRequested>(_onLoginRequested);
     on<AuthRegisterRequested>(_onRegisterRequested);
     on<AuthVerifyOTPRequested>(_onVerifyOTPRequested);
@@ -23,6 +29,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLogoutRequested>(_onLogoutRequested);
     on<AuthGoogleSignInRequested>(_onGoogleSignInRequested);
+    on<AuthSwitchAccountRequested>(_onSwitchAccountRequested);
+  }
+
+  Future<void> _onSwitchAccountRequested(
+    AuthSwitchAccountRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      final user = await repository.switchAccount(event.account);
+      emit(AuthAuthenticated(user));
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
   }
 
   Future<void> _onLoginRequested(
@@ -158,6 +178,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       emit(AuthError(e.toString()));
     }
+  }
+  @override
+  Future<void> close() {
+    _logoutSubscription?.cancel();
+    return super.close();
   }
 }
 

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/presentation/widgets/floq_avatar.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
@@ -21,7 +21,7 @@ import '../../../../features/users/presentation/bloc/users_bloc.dart';
 import '../../../../features/users/data/repositories/users_repository_impl.dart';
 import '../../../../features/feed/data/repositories/feed_repository_impl.dart';
 import '../../../../core/services/api_client.dart';
-
+import '../../../auth/presentation/widgets/account_switcher_bottom_sheet.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -292,15 +292,11 @@ class _SettingsViewState extends State<_SettingsView> {
                       Center(
                         child: Stack(
                           children: [
-                            CircleAvatar(
+                            FloqAvatar(
                               radius: 55,
+                              name: profile.name,
+                              imageUrl: profile.profileImagePath,
                               backgroundColor: colorScheme.surfaceContainerHighest,
-                              backgroundImage: profile.profileImagePath.isNotEmpty
-                                  ? FileImage(File(profile.profileImagePath))
-                                  : null,
-                              child: profile.profileImagePath.isEmpty
-                                  ? Icon(Icons.person_rounded, size: 55, color: colorScheme.primary)
-                                  : null,
                             ),
                             Positioned(
                               bottom: 0,
@@ -347,7 +343,8 @@ class _SettingsViewState extends State<_SettingsView> {
                                 user: UserEntity(
                                   id: 'me',
                                   name: profile.name,
-                                  profileUrl: profile.profileImagePath.isNotEmpty ? profile.profileImagePath : 'assets/icon.png',
+                                  profileUrl: profile.profileImagePath,
+                                  email: profile.email,
                                   relation: UserRelation.accepted,
                                   followersCount: profile.followersCount,
                                   followingCount: profile.followingCount,
@@ -431,6 +428,22 @@ class _SettingsViewState extends State<_SettingsView> {
                     _buildSettingsTile(context, icon: Icons.help_outline_rounded, title: "Help Center", onTap: (){}),
                     _buildSettingsTile(context, icon: Icons.privacy_tip_outlined, title: "Privacy Policy", onTap: (){}),
                     _buildSettingsTile(context, icon: Icons.info_outline_rounded, title: "About", onTap: (){}),
+
+                    const SizedBox(height: 32),
+                    _buildSectionHeader(context, "Account Center"),
+                    _buildSettingsTile(
+                      context, 
+                      icon: Icons.switch_account_outlined, 
+                      title: "Switch Account", 
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (_) => const AccountSwitcherBottomSheet(),
+                        );
+                      }
+                    ),
 
                     const SizedBox(height: 48),
                     BouncyButton(

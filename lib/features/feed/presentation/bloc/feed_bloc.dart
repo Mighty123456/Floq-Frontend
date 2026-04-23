@@ -10,6 +10,7 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
 
   FeedBloc({required this.repository}) : super(const FeedState()) {
     on<LoadFeedRequested>(_onLoadFeed);
+    on<LoadReelsRequested>(_onLoadReels);
     on<RefreshFeedRequested>(_onRefreshFeed);
     on<LoadMoreFeedRequested>(_onLoadMoreFeed);
     on<CreatePostRequested>(_onCreatePost);
@@ -45,6 +46,19 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
       ));
     } catch (e) {
       emit(state.copyWith(error: e.toString(), isLoading: false));
+    }
+  }
+
+  Future<void> _onLoadReels(LoadReelsRequested event, Emitter<FeedState> emit) async {
+    emit(state.copyWith(isLoading: true));
+    try {
+      final reels = await repository.getReels();
+      // Merge reels into state or handle specifically
+      // For now we merge into posts list but we could have a separate reels list in state
+      final allPosts = {...{for (var p in reels) p.id: p}, ...{for (var p in state.posts) p.id: p}}.values.toList();
+      emit(state.copyWith(isLoading: false, posts: allPosts));
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
@@ -92,6 +106,10 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
       final newPost = await repository.createPost(
         caption: event.caption,
         mediaPaths: event.mediaPaths,
+        type: event.type,
+        location: event.location,
+        audioData: event.audioData,
+        metadata: event.metadata,
       );
       emit(state.copyWith(
         posts: [newPost, ...state.posts],

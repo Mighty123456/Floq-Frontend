@@ -13,16 +13,18 @@ import '../../../../core/presentation/widgets/bubble_notification.dart';
 import '../../../../core/services/secure_storage_service.dart';
 
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+  final bool isAddingAccount;
+  const LoginPage({super.key, this.isAddingAccount = false});
 
   @override
   Widget build(BuildContext context) {
-    return const _LoginView();
+    return _LoginView(isAddingAccount: isAddingAccount);
   }
 }
 
 class _LoginView extends StatefulWidget {
-  const _LoginView();
+  final bool isAddingAccount;
+  const _LoginView({this.isAddingAccount = false});
 
   @override
   State<_LoginView> createState() => _LoginViewState();
@@ -136,10 +138,15 @@ class _LoginViewState extends State<_LoginView> {
               child: BlocConsumer<AuthBloc, AuthState>(
                 listener: (context, state) {
                   if (state is AuthAuthenticated) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HomePage()),
-                    );
+                    if (widget.isAddingAccount) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomePage()),
+                        (route) => false,
+                      );
+                    }
                   } else if (state is AuthNeedsVerification) {
                     Navigator.push(
                       context,

@@ -5,21 +5,18 @@ import '../../domain/entities/user_entity.dart';
 import '../bloc/users_bloc.dart';
 import '../bloc/users_event.dart';
 import '../bloc/users_state.dart';
-import 'user_profile_page.dart';
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/floq_avatar.dart';
 
 enum ConnectionListType { followers, following }
 
 class ConnectionListPage extends StatefulWidget {
-  final String userId;
-  final String userName;
+  final UserEntity user;
   final ConnectionListType type;
 
   const ConnectionListPage({
     super.key,
-    required this.userId,
-    required this.userName,
+    required this.user,
     required this.type,
   });
 
@@ -28,6 +25,9 @@ class ConnectionListPage extends StatefulWidget {
 }
 
 class _ConnectionListPageState extends State<ConnectionListPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+
   @override
   void initState() {
     super.initState();
@@ -35,154 +35,236 @@ class _ConnectionListPageState extends State<ConnectionListPage> {
   }
 
   void _loadData() {
-    if (widget.type == ConnectionListType.followers) {
-      context.read<UsersBloc>().add(LoadFollowersRequested(widget.userId));
-    } else {
-      context.read<UsersBloc>().add(LoadFollowingRequested(widget.userId));
-    }
+    context.read<UsersBloc>().add(LoadFollowersRequested(widget.user.id));
+    context.read<UsersBloc>().add(LoadFollowingRequested(widget.user.id));
+    context.read<UsersBloc>().add(LoadConnectionCategoriesRequested());
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
-      appBar: AppBar(
-        title: Column(
+    return DefaultTabController(
+      length: 3,
+      initialIndex: widget.type == ConnectionListType.followers ? 0 : 1,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
+            widget.user.name.toLowerCase().replaceAll(' ', '_'),
+            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          actions: [
+            IconButton(onPressed: () {}, icon: const Icon(Icons.person_add_outlined, color: Colors.white)),
+          ],
+          bottom: TabBar(
+            indicatorColor: Colors.white,
+            indicatorWeight: 1,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.grey,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            tabs: [
+              Tab(text: "${widget.user.followersCount} Followers"),
+              Tab(text: "${widget.user.followingCount} Following"),
+              const Tab(text: "0 Subscriptions"),
+            ],
+          ),
+        ),
+        body: TabBarView(
           children: [
-            Text(
-              widget.type == ConnectionListType.followers ? "Followers" : "Following",
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            Text(
-              widget.userName,
-              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-            ),
+            _buildList(ConnectionListType.followers),
+            _buildList(ConnectionListType.following),
+            const Center(child: Text("No subscriptions yet", style: TextStyle(color: Colors.grey))),
           ],
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: BlocBuilder<UsersBloc, UsersState>(
-        builder: (context, state) {
-          final isLoading = widget.type == ConnectionListType.followers 
-              ? state.isLoadingFollowers 
-              : state.isLoadingFollowing;
-          
-          final users = widget.type == ConnectionListType.followers 
-              ? state.followers 
-              : state.following;
-
-          if (isLoading && users.isEmpty) {
-            return const Center(child: BubbleLoader());
-          }
-
-          if (users.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    widget.type == ConnectionListType.followers 
-                        ? Icons.person_add_disabled_rounded 
-                        : Icons.person_off_rounded,
-                    size: 64,
-                    color: Colors.grey.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.type == ConnectionListType.followers 
-                        ? "No followers yet" 
-                        : "Not following anyone yet",
-                    style: GoogleFonts.poppins(color: Colors.grey, fontSize: 16),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async => _loadData(),
-            color: colorScheme.primary,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: users.length,
-              itemBuilder: (context, index) {
-                final user = users[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
-                      ),
-                    ),
-                    child: ListTile(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => UserProfilePage(user: user),
-                          ),
-                        );
-                      },
-                      leading: FloqAvatar(
-                        radius: 24,
-                        name: user.name,
-                        imageUrl: user.profileUrl,
-                      ),
-                      title: Text(
-                        user.name,
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      subtitle: Text(
-                        user.bio.isNotEmpty ? user.bio : "Connect via Floq",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      trailing: _buildRelationButton(user, colorScheme),
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
       ),
     );
   }
 
-  Widget _buildRelationButton(UserEntity user, ColorScheme colorScheme) {
-     if (user.id == 'me') return const SizedBox.shrink();
+  Widget _buildList(ConnectionListType type) {
+    return BlocBuilder<UsersBloc, UsersState>(
+      builder: (context, state) {
+        final isLoading = type == ConnectionListType.followers 
+            ? state.isLoadingFollowers 
+            : state.isLoadingFollowing;
+        
+        final allFollowers = state.followers;
+        
+        final activeUsers = type == ConnectionListType.followers ? allFollowers : state.following;
+        final filteredUsers = activeUsers.where((u) => 
+          u.name.toLowerCase().contains(_searchQuery.toLowerCase())
+        ).toList();
 
-     final bool isFollowing = user.relation == UserRelation.accepted;
-     final bool isPending = user.relation == UserRelation.pending;
+        if (isLoading && activeUsers.isEmpty) {
+          return const Center(child: BubbleLoader());
+        }
 
-     return ElevatedButton(
-       onPressed: () {
-         if (!isFollowing && !isPending) {
-           context.read<UsersBloc>().add(SendRequest(user.id));
-         }
-       },
-       style: ElevatedButton.styleFrom(
-         backgroundColor: (isFollowing || isPending) ? Colors.transparent : colorScheme.primary,
-         foregroundColor: (isFollowing || isPending) ? Colors.grey : Colors.white,
-         elevation: 0,
-         side: (isFollowing || isPending) ? const BorderSide(color: Colors.grey, width: 1) : null,
-         padding: const EdgeInsets.symmetric(horizontal: 16),
-         minimumSize: const Size(80, 32),
-         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-       ),
-       child: Text(
-         isFollowing ? "Following" : (isPending ? "Pending" : "Follow"),
-         style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold),
-       ),
-     );
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: const InputDecoration(
+                      hintText: "Search",
+                      hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                      prefixIcon: Icon(Icons.search, color: Colors.grey, size: 20),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (type == ConnectionListType.followers && _searchQuery.isEmpty)
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text("Categories", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                    if (state.isLoadingCategories)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                      )
+                    else ...[
+                      if (state.dontFollowBack.isNotEmpty)
+                        _buildCategoryItem(
+                          "People you don't follow back", 
+                          "${state.dontFollowBack.first.name.toLowerCase().replaceAll(' ', '_')} and ${state.dontFollowBack.length - 1} others",
+                          state.dontFollowBack.take(2).toList(),
+                        ),
+                      _buildCategoryItem(
+                        "New Followers", 
+                        state.newFollowers.isNotEmpty ? "${state.newFollowers.first.name.toLowerCase()} and others" : "None recently",
+                        state.newFollowers.take(2).toList(),
+                      ),
+                    ],
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                      child: Text("All followers", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ],
+                ),
+              ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final user = filteredUsers[index];
+                  return _buildUserListItem(user, type);
+                },
+                childCount: filteredUsers.length,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryItem(String title, String subtitle, List<UserEntity> sampleUsers) {
+    return ListTile(
+      leading: SizedBox(
+        width: 60,
+        child: Stack(
+          children: [
+            if (sampleUsers.isNotEmpty)
+              CircleAvatar(
+                radius: 18, 
+                backgroundColor: Colors.black,
+                child: FloqAvatar(radius: 17, name: sampleUsers[0].name, imageUrl: sampleUsers[0].profileUrl),
+              ),
+            if (sampleUsers.length > 1)
+              Positioned(
+                left: 14, 
+                child: CircleAvatar(
+                  radius: 18, 
+                  backgroundColor: Colors.black,
+                  child: FloqAvatar(radius: 17, name: sampleUsers[1].name, imageUrl: sampleUsers[1].profileUrl),
+                ),
+              ),
+          ],
+        ),
+      ),
+      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+    );
+  }
+
+  Widget _buildUserListItem(UserEntity user, ConnectionListType type) {
+    final bool isFollowing = user.relation == UserRelation.accepted;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.pinkAccent, width: 1.5),
+            ),
+            child: FloqAvatar(
+              radius: 28,
+              name: user.name,
+              imageUrl: user.profileUrl,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name.toLowerCase().replaceAll(' ', '_'),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                Text(
+                  user.name,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          if (isFollowing)
+            _buildSmallButton("Message", Colors.white12, Colors.white)
+          else
+            _buildSmallButton("Follow back", Colors.blueAccent, Colors.white),
+          const SizedBox(width: 12),
+          const Icon(Icons.close, color: Colors.white54, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallButton(String text, Color bgColor, Color textColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 13),
+      ),
+    );
   }
 }
+

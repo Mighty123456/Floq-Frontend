@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/users_bloc.dart';
@@ -13,6 +14,9 @@ import '../../../feed/presentation/pages/story_group_view.dart';
 import 'edit_profile_page.dart';
 import 'connection_list_page.dart';
 import '../../../../core/presentation/widgets/floq_avatar.dart';
+import '../../../auth/presentation/widgets/account_switcher_bottom_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class UserProfilePage extends StatefulWidget {
   final UserEntity user;
@@ -92,80 +96,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
 
 
   void _showAccountSwitcherSheet() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Current Account
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colorScheme.primary, width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundImage: NetworkImage(widget.user.profileUrl),
-                ),
-              ),
-              title: Text(
-                widget.user.name,
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-              ),
-              trailing: Icon(Icons.check_circle_rounded, color: colorScheme.primary),
-              onTap: () => Navigator.pop(context),
-            ),
-            
-            // Add Account
-            ListTile(
-              leading: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.add_rounded),
-              ),
-              title: Text(
-                "Add New Account",
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                BubbleNotification.show(
-                  context,
-                  "Redirecting to secure login...",
-                  type: NotificationType.info,
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
+      isScrollControlled: true,
+      builder: (context) => const AccountSwitcherBottomSheet(),
     );
   }
 
@@ -391,7 +326,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                           fontWeight: FontWeight.bold,
                           color: colorScheme.primary,
                         ),
-                      ),
+                      ).animate().fadeIn(delay: 600.ms, duration: 600.ms).slideY(begin: 0.3, curve: Curves.easeOutQuint),
                       const SizedBox(height: 24),
 
                       
@@ -404,17 +339,37 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                   Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          _buildShareIcon(Icons.chat_bubble_rounded, "WhatsApp", Colors.greenAccent, onTap: () => Navigator.pop(context)),
+                          _buildShareIcon(
+                            Icons.chat_bubble_rounded, 
+                            "WhatsApp", 
+                            Colors.greenAccent, 
+                            onTap: () async {
+                              final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
+                              final url = Uri.parse("whatsapp://send?text=Check out my Floq profile: $profileLink");
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url);
+                              } else {
+                                if (context.mounted) BubbleNotification.show(context, "WhatsApp not installed", type: NotificationType.error);
+                              }
+                            }
+                          ).animate().fadeIn(delay: 700.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOutQuint).scale(curve: Curves.easeOutBack),
                           _buildShareIcon(Icons.camera_alt_rounded, "Stories", Colors.pinkAccent, onTap: () {
                             Navigator.pop(context);
-                            BubbleNotification.show(
-                              context,
-                              "Shared to your stories!",
-                              type: NotificationType.success,
-                            );
-                          }),
-                          _buildShareIcon(Icons.copy_rounded, "Copy", Colors.grey, onTap: () => Navigator.pop(context)),
-                          _buildShareIcon(Icons.more_horiz_rounded, "More", colorScheme.primary, onTap: () => Navigator.pop(context)),
+                            BubbleNotification.show(context, "Profile card generated for Stories!", type: NotificationType.success);
+                          }).animate().fadeIn(delay: 800.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOutQuint).scale(curve: Curves.easeOutBack),
+                          _buildShareIcon(Icons.copy_rounded, "Copy", Colors.grey, onTap: () {
+                            final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
+                            Clipboard.setData(ClipboardData(text: profileLink));
+                            Navigator.pop(context);
+                            BubbleNotification.show(context, "Link copied to clipboard!", type: NotificationType.success);
+                          }).animate().fadeIn(delay: 900.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOutQuint).scale(curve: Curves.easeOutBack),
+                          _buildShareIcon(Icons.more_horiz_rounded, "More", colorScheme.primary, onTap: () async {
+                            final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
+                            final url = Uri.parse("mailto:?subject=Connect with me on Floq&body=Check out my profile: $profileLink");
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url);
+                            }
+                          }).animate().fadeIn(delay: 1000.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOutQuint).scale(curve: Curves.easeOutBack),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -448,30 +403,104 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
           child: Stack(
             alignment: Alignment.center,
             children: [
-              CustomPaint(
-                size: const Size(200, 200),
-                painter: _QrPainter(
-                  color: colorScheme.primary.withValues(alpha: 0.8 + (0.2 * value)),
-                  dotColor: colorScheme.secondary.withValues(alpha: 0.3),
-                ),
+              // Outer Pulse Glow
+              AnimatedBuilder(
+                animation: _tabController.animation!, // Reusing a controller for sync or just value
+                builder: (context, child) {
+                  return Container(
+                    width: 210,
+                    height: 210,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.primary.withValues(alpha: 0.2 * (1 + value)),
+                          blurRadius: 20 * value,
+                          spreadRadius: 5 * value,
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
+              
+              // QR Container
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 10,
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3), width: 2),
+                ),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${Uri.encodeComponent("https://floq.me/profile/${widget.user.name.toLowerCase().trim().replaceAll(' ', '')}")}",
+                        width: 180,
+                        height: 180,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const SizedBox(
+                            width: 180,
+                            height: 180,
+                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.qr_code, size: 100),
+                      ),
+                    ),
+                    
+                    // Scanning Animation Line
+                    Positioned(
+                      top: 180 * value,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: 2,
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.primary,
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                          gradient: LinearGradient(
+                            colors: [
+                              colorScheme.primary.withValues(alpha: 0),
+                              colorScheme.primary,
+                              colorScheme.primary.withValues(alpha: 0),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: Icon(Icons.blur_on_rounded, color: colorScheme.primary, size: 32),
+              ),
+              
+              // Center Logo
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colorScheme.primary.withValues(alpha: 0.5), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                child: Icon(Icons.blur_on_rounded, color: colorScheme.primary, size: 28),
               ),
             ],
           ),
-        );
+        ).animate().scale(delay: 400.ms, curve: Curves.easeOutQuint, duration: 800.ms).fadeIn(duration: 600.ms).slideY(begin: 0.1, curve: Curves.easeOutQuint);
       },
     );
   }
@@ -551,7 +580,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _isMe ? "My Profile" : widget.user.name,
+                    widget.user.name,
                     style: GoogleFonts.poppins(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -621,15 +650,13 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                             }),
                             _buildCompactStat(context, "${widget.user.followersCount}", "Followers", onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (_) => ConnectionListPage(
-                                  userId: widget.user.id,
-                                  userName: widget.user.name,
+                                  user: widget.user,
                                   type: ConnectionListType.followers,
                                 )));
                             }),
                             _buildCompactStat(context, "${widget.user.followingCount}", "Following", onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (_) => ConnectionListPage(
-                                  userId: widget.user.id,
-                                  userName: widget.user.name,
+                                  user: widget.user,
                                   type: ConnectionListType.following,
                                 )));
                             }),
@@ -1052,66 +1079,5 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
     return false;
   }
-}
-
-class _QrPainter extends CustomPainter {
-  final Color color;
-  final Color dotColor;
-
-  _QrPainter({required this.color, required this.dotColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final bgPaint = Paint()..color = dotColor;
-    
-    const double padding = 2;
-    const int count = 12;
-    final double cellSize = size.width / count;
-
-    for (int i = 0; i < count; i++) {
-      for (int j = 0; j < count; j++) {
-        // Skip central area for logo
-        if (i >= 5 && i <= 6 && j >= 5 && j <= 6) continue;
-        
-        final rect = Rect.fromLTWH(
-          i * cellSize + padding,
-          j * cellSize + padding,
-          cellSize - (padding * 2),
-          cellSize - (padding * 2),
-        );
-
-        // Pattern logic
-        if ((i + j) % 3 == 0 || (i * j) % 5 == 0) {
-          canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), paint);
-        } else {
-          canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), bgPaint);
-        }
-      }
-    }
-
-    // Draw Corner squares (QR style)
-    _drawCorner(canvas, Offset.zero, cellSize, paint);
-    _drawCorner(canvas, Offset(size.width - (cellSize * 3), 0), cellSize, paint);
-    _drawCorner(canvas, Offset(0, size.height - (cellSize * 3)), cellSize, paint);
-  }
-
-  void _drawCorner(Canvas canvas, Offset offset, double cellSize, Paint paint) {
-    final rect = Rect.fromLTWH(offset.dx, offset.dy, cellSize * 3, cellSize * 3);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
-      Paint()..color = color.withValues(alpha: 0.2),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(offset.dx + cellSize, offset.dy + cellSize, cellSize, cellSize),
-        const Radius.circular(4),
-      ),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _QrPainter oldDelegate) => oldDelegate.color != color;
 }
 

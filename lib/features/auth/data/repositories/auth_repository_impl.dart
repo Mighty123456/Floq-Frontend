@@ -24,14 +24,20 @@ class AuthRepositoryImpl implements AuthRepository {
         'password': password,
       });
 
-      final data = response.data['data'];
-      final user = AuthUserModel.fromJson(data['user']);
+      final responseData = response.data;
+      final data = (responseData is Map && responseData.containsKey('data')) 
+          ? responseData['data'] 
+          : responseData;
+      
+      final userMap = data['user'] as Map<String, dynamic>;
+      final user = AuthUserModel.fromJson(userMap);
       
       await _storage.saveTokens(
         accessToken: data['accessToken'],
         refreshToken: data['refreshToken'],
       );
       await _storage.saveUser(jsonEncode(user.toJson()));
+      await _updateAccounts(user, data['accessToken'], data['refreshToken']);
 
       return user;
     } on DioException catch (e) {
@@ -55,9 +61,12 @@ class AuthRepositoryImpl implements AuthRepository {
         'password': password,
       });
 
-      final data = response.data['data'];
+      final responseData = response.data;
+      final data = (responseData is Map && responseData.containsKey('data')) 
+          ? responseData['data'] 
+          : responseData;
       // Registration only returns basic info before OTP verification in this flow
-      return AuthUserModel(id: data['userId'], name: name, email: email);
+      return AuthUserModel(id: data['userId'] ?? data['_id'], name: name, email: email);
     } on DioException catch (e) {
       final message = e.response?.data['message'] ?? 'Registration failed';
       throw Exception(message);
@@ -95,14 +104,20 @@ class AuthRepositoryImpl implements AuthRepository {
         'otp': otp,
       });
 
-      final data = response.data['data'];
-      final user = AuthUserModel.fromJson(data['user']);
+      final responseData = response.data;
+      final data = (responseData is Map && responseData.containsKey('data')) 
+          ? responseData['data'] 
+          : responseData;
+          
+      final userMap = data['user'] as Map<String, dynamic>;
+      final user = AuthUserModel.fromJson(userMap);
       
       await _storage.saveTokens(
         accessToken: data['accessToken'],
         refreshToken: data['refreshToken'],
       );
       await _storage.saveUser(jsonEncode(user.toJson()));
+      await _updateAccounts(user, data['accessToken'], data['refreshToken']);
 
       return user;
     } on DioException catch (e) {
@@ -139,14 +154,24 @@ class AuthRepositoryImpl implements AuthRepository {
         'idToken': googleAuth.idToken,
       });
 
-      final data = response.data['data'];
-      final user = AuthUserModel.fromJson(data['user']);
+      final responseData = response.data;
+      final data = (responseData is Map && responseData.containsKey('data')) 
+          ? responseData['data'] 
+          : responseData;
+
+      if (data == null) throw Exception('No data received from server');
+      
+      final userMap = data['user'] as Map<String, dynamic>?;
+      if (userMap == null) throw Exception('User data not found in response');
+      
+      final user = AuthUserModel.fromJson(userMap);
       
       await _storage.saveTokens(
         accessToken: data['accessToken'],
         refreshToken: data['refreshToken'],
       );
       await _storage.saveUser(jsonEncode(user.toJson()));
+      await _updateAccounts(user, data['accessToken'], data['refreshToken']);
 
       return user;
     } catch (e) {
@@ -162,18 +187,24 @@ class AuthRepositoryImpl implements AuthRepository {
         'otp': otp,
       });
 
-      final data = response.data['data'];
-      final user = AuthUserModel.fromJson(data['user']);
+      final responseData = response.data;
+      final data = (responseData is Map && responseData.containsKey('data')) 
+          ? responseData['data'] 
+          : responseData;
+          
+      final userMap = data['user'] as Map<String, dynamic>;
+      final user = AuthUserModel.fromJson(userMap);
       
       await _storage.saveTokens(
         accessToken: data['accessToken'],
         refreshToken: data['refreshToken'],
       );
       await _storage.saveUser(jsonEncode(user.toJson()));
+      await _updateAccounts(user, data['accessToken'], data['refreshToken']);
 
       return user;
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Login failed');
+      throw Exception(e.response?.statusCode == 401 ? 'Invalid OTP' : (e.response?.data['message'] ?? 'Login failed'));
     }
   }
 
@@ -181,19 +212,71 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<AuthUser?> getAuthenticatedUser() async {
     try {
       final userJson = await _storage.getUser();
-      if (userJson != null) {
-        return AuthUserModel.fromJson(jsonDecode(userJson));
+      final accessToken = await _storage.getAccessToken();
+      
+      if (userJson == null || accessToken == null) {
+        return null;
       }
+
+      // Verify session with server
+      final response = await _apiClient.dio.get('/auth/me');
+      final responseData = response.data;
+      final data = (responseData is Map && responseData.containsKey('data')) 
+          ? responseData['data'] 
+          : responseData;
+
+      if (data != null) {
+        final user = AuthUserModel.fromJson(data);
+        // Update local cache with fresh data
+        await _storage.saveUser(jsonEncode(user.toJson()));
+        return user;
+      }
+      
       return null;
     } catch (e) {
+      // If server check fails (e.g. 401), clear everything
+      await logout();
       return null;
     }
   }
 
   @override
   Future<void> logout() async {
+    // Only clear active session — preserve the saved accounts list for switcher
     await _storage.deleteTokens();
     await _storage.deleteUser();
+    // _accountsKey is intentionally NOT deleted here
+  }
+
+  @override
+  Future<AuthUser> switchAccount(Map<String, dynamic> account) async {
+    // account is stored as a flat map: {id, email, name, avatar (string), accessToken, refreshToken}
+    // AuthUserModel.fromJson expects avatar as {'url': ...}, so we reconstruct it
+    final user = AuthUserModel(
+      id: account['id'] ?? '',
+      name: account['name'] ?? '',
+      email: account['email'] ?? '',
+      profileUrl: account['avatar'] ?? '',
+    );
+
+    await _storage.saveTokens(
+      accessToken: account['accessToken'],
+      refreshToken: account['refreshToken'],
+    );
+    await _storage.saveUser(jsonEncode(user.toJson()));
+
+    return user;
+  }
+
+  Future<void> _updateAccounts(AuthUser user, String accessToken, String refreshToken) async {
+    await _storage.saveAccount(
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.profileUrl,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
   }
 }
 

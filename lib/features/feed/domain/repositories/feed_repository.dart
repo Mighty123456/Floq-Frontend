@@ -4,8 +4,16 @@ import '../entities/story_entity.dart';
 
 abstract class FeedRepository {
   Future<List<PostEntity>> getFeed({int page = 1});
+  Future<List<PostEntity>> getReels({int page = 1});
   Future<List<PostEntity>> getUserPosts(String userId);
-  Future<PostEntity> createPost({required String caption, required List<String> mediaPaths});
+  Future<PostEntity> createPost({
+    required String caption, 
+    required List<String> mediaPaths,
+    String? type,
+    Map<String, dynamic>? location,
+    Map<String, dynamic>? audioData,
+    Map<String, dynamic>? metadata,
+  });
   Future<void> likePost(String postId);
   Future<void> unlikePost(String postId);
   Future<void> addComment(String postId, String content, {String? parentId});
@@ -16,7 +24,12 @@ abstract class FeedRepository {
 
   // Stories
   Future<List<StoryGroupEntity>> getStoryFeed();
-  Future<void> uploadStory({required String mediaPath, String? caption});
+  Future<void> uploadStory({
+    required String mediaPath, 
+    String? caption,
+    Map<String, dynamic>? location,
+    Map<String, dynamic>? metadata,
+  });
   Future<void> markStoryAsSeen(String storyId);
 }
 

@@ -25,6 +25,32 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
     on<ReportUserRequested>(_onReportUser);
     on<LoadFollowersRequested>(_onLoadFollowers);
     on<LoadFollowingRequested>(_onLoadFollowing);
+    on<LoadConnectionCategoriesRequested>(_onLoadCategories);
+    on<LoadTrendingChannelsRequested>(_onLoadTrendingChannels);
+  }
+
+  Future<void> _onLoadTrendingChannels(LoadTrendingChannelsRequested event, Emitter<UsersState> emit) async {
+    emit(state.copyWith(isLoadingTrending: true, errorMessage: null));
+    try {
+      final channels = await repository.getTrendingChannels();
+      emit(state.copyWith(trendingChannels: channels, isLoadingTrending: false));
+    } catch (e) {
+      emit(state.copyWith(isLoadingTrending: false, errorMessage: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadCategories(LoadConnectionCategoriesRequested event, Emitter<UsersState> emit) async {
+    emit(state.copyWith(isLoadingCategories: true, errorMessage: null));
+    try {
+      final categories = await repository.getConnectionCategories();
+      emit(state.copyWith(
+        dontFollowBack: categories['dontFollowBack'],
+        newFollowers: categories['newFollowers'],
+        isLoadingCategories: false,
+      ));
+    } catch (e) {
+      emit(state.copyWith(isLoadingCategories: false, errorMessage: e.toString()));
+    }
   }
 
   Future<void> _onLoadExploreFeed(LoadExploreFeedRequested event, Emitter<UsersState> emit) async {

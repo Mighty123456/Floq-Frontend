@@ -11,5 +11,6 @@ abstract class AuthRepository {
   Future<AuthUser> signInWithGoogle();
   Future<AuthUser?> getAuthenticatedUser();
   Future<void> logout();
+  Future<AuthUser> switchAccount(Map<String, dynamic> account);
 }
 

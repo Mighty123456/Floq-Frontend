@@ -225,15 +225,25 @@ class FloqApp extends StatelessWidget {
           ),
           themeMode: currentMode,
           builder: (context, child) {
-            return AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              transitionBuilder: (child, animation) {
-                return FadeTransition(opacity: animation, child: child);
+            return BlocListener<AuthBloc, AuthState>(
+              listener: (context, state) {
+                if (state is AuthUnauthenticated) {
+                  navigatorKey.currentState?.pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const OnboardingPage()),
+                    (route) => false,
+                  );
+                }
               },
-              child: Container(
-                key: ValueKey(currentMode),
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: child!,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                child: Container(
+                  key: ValueKey(currentMode),
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  child: child!,
+                ),
               ),
             );
           },

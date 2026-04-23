@@ -25,7 +25,7 @@ class FeedPage extends StatefulWidget {
 }
 
 class _FeedPageState extends State<FeedPage> {
-  String _currentUserAvatar = "https://i.pravatar.cc/150?u=my_story";
+  String _currentUserAvatar = "";
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -168,7 +168,7 @@ class _FeedPageState extends State<FeedPage> {
       final map = jsonDecode(userJson);
       if (mounted) {
         setState(() {
-          _currentUserAvatar = map['avatar']?['url'] ?? "https://i.pravatar.cc/150?u=${map['id']}";
+          _currentUserAvatar = map['avatar']?['url'] ?? "";
         });
       }
     }

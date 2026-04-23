@@ -7,6 +7,9 @@ import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/feed_bloc.dart';
 import '../bloc/feed_event.dart';
+import '../../../../core/presentation/widgets/floq_avatar.dart';
+import '../../../../core/services/secure_storage_service.dart';
+import 'dart:convert';
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({super.key});
@@ -20,6 +23,31 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final ImagePicker _picker = ImagePicker();
   final List<File> _selectedImages = [];
   bool _isPosting = false;
+  String _userName = "User";
+  String _userAvatar = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final storage = SecureStorageService();
+    final userJson = await storage.getUser();
+    if (userJson != null) {
+      final map = jsonDecode(userJson);
+      if (mounted) {
+        setState(() {
+          final email = map['email'] ?? '';
+          _userName = (map['fullName'] != null && map['fullName'].toString().isNotEmpty && map['fullName'] != 'Unknown') 
+              ? map['fullName'] 
+              : (email.isNotEmpty ? email.split('@')[0] : 'Floq User');
+          _userAvatar = (map['avatar'] is Map) ? map['avatar']['url'] : (map['avatar'] ?? "");
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,9 +117,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const CircleAvatar(
+                  FloqAvatar(
                     radius: 20,
-                    backgroundImage: NetworkImage("https://i.pravatar.cc/150?u=my_profile"),
+                    name: _userName,
+                    imageUrl: _userAvatar,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

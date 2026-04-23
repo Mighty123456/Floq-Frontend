@@ -85,3 +85,12 @@ class AuthVerifyLoginOTPRequested extends AuthEvent {
   @override
   List<Object> get props => [email, otp];
 }
+
+class AuthSwitchAccountRequested extends AuthEvent {
+  final Map<String, dynamic> account;
+
+  const AuthSwitchAccountRequested(this.account);
+
+  @override
+  List<Object> get props => [account];
+}

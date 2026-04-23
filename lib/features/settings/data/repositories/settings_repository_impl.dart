@@ -14,13 +14,15 @@ class SettingsRepositoryImpl implements SettingsRepository {
   Future<UserProfileEntity> getUserProfile() async {
     try {
       final response = await _apiClient.dio.get('/auth/me');
-      final map = response.data;
+      final map = response.data['data'];
       
       final profile = UserProfileEntity(
         id: map['_id'] ?? 'u1',
-        name: map['fullName'] ?? 'Unknown',
+        name: (map['fullName'] != null && map['fullName'].toString().isNotEmpty && map['fullName'] != 'Unknown') 
+            ? map['fullName'] 
+            : (map['username'] ?? (map['email'] != null ? map['email'].split('@')[0] : 'Floq User')),
         email: map['email'] ?? 'No email',
-        profileImagePath: map['avatar']?['url'] ?? '',
+        profileImagePath: (map['avatar'] is Map) ? (map['avatar']['url'] ?? '') : (map['avatar'] ?? ''),
         followersCount: map['followersCount'] ?? 0,
         followingCount: map['followingCount'] ?? 0,
         postsCount: map['postsCount'] ?? 0,
@@ -40,9 +42,11 @@ class SettingsRepositoryImpl implements SettingsRepository {
         final map = jsonDecode(userStr);
         return UserProfileEntity(
           id: map['_id'] ?? 'u1',
-          name: map['fullName'] ?? 'Unknown',
+          name: (map['fullName'] != null && map['fullName'].toString().isNotEmpty && map['fullName'] != 'Unknown') 
+              ? map['fullName'] 
+              : (map['username'] ?? (map['email'] != null ? map['email'].split('@')[0] : 'Floq User')),
           email: map['email'] ?? 'No email',
-          profileImagePath: map['avatar']?['url'] ?? '',
+          profileImagePath: (map['avatar'] is Map) ? (map['avatar']['url'] ?? '') : (map['avatar'] ?? ''),
           followersCount: map['followersCount'] ?? 0,
           followingCount: map['followingCount'] ?? 0,
           postsCount: map['postsCount'] ?? 0,

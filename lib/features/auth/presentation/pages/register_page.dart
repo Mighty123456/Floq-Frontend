@@ -8,18 +8,21 @@ import '../bloc/auth_state.dart';
 import 'verify_otp_page.dart';
 import '../../../../core/presentation/widgets/bubble_loader.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
+import '../../../../core/presentation/pages/home_page.dart';
 
 class RegisterPage extends StatelessWidget {
-  const RegisterPage({super.key});
+  final bool isAddingAccount;
+  const RegisterPage({super.key, this.isAddingAccount = false});
 
   @override
   Widget build(BuildContext context) {
-    return const _RegisterView();
+    return _RegisterView(isAddingAccount: isAddingAccount);
   }
 }
 
 class _RegisterView extends StatefulWidget {
-  const _RegisterView();
+  final bool isAddingAccount;
+  const _RegisterView({this.isAddingAccount = false});
 
   @override
   State<_RegisterView> createState() => _RegisterViewState();
@@ -108,10 +111,15 @@ class _RegisterViewState extends State<_RegisterView> {
                       'Registration successful!',
                       type: NotificationType.success,
                     );
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginPage()),
-                    );
+                    if (widget.isAddingAccount) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomePage()),
+                        (route) => false,
+                      );
+                    }
                   } else if (state is AuthNeedsVerification) {
                     Navigator.push(
                       context,
@@ -320,7 +328,7 @@ class _RegisterViewState extends State<_RegisterView> {
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
-                                          builder: (_) => const LoginPage()),
+                                          builder: (_) => LoginPage(isAddingAccount: widget.isAddingAccount)),
                                     );
                                   },
                                   child: Text(

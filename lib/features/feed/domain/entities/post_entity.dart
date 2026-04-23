@@ -15,6 +15,7 @@ class PostEntity extends Equatable {
   final PostEntity? repostOf;
   final int repostsCount;
   final List<String> hashtags;
+  final String type;
 
   const PostEntity({
     required this.id,
@@ -31,6 +32,7 @@ class PostEntity extends Equatable {
     this.repostOf,
     this.repostsCount = 0,
     this.hashtags = const [],
+    this.type = 'post',
   });
 
 
@@ -56,6 +58,7 @@ class PostEntity extends Equatable {
       repostOf: repostOf,
       repostsCount: repostsCount ?? this.repostsCount,
       hashtags: hashtags,
+      type: type,
     );
   }
 
@@ -74,6 +77,7 @@ class PostEntity extends Equatable {
       'isSaved': isSaved,
       'repostsCount': repostsCount,
       'hashtags': hashtags,
+      'type': type,
       if (repostOf != null) 'repostOf': repostOf!.toJson(),
     };
   }
@@ -93,6 +97,7 @@ class PostEntity extends Equatable {
       isSaved: json['isSaved'] ?? false,
       repostsCount: json['repostsCount'] ?? 0,
       hashtags: List<String>.from(json['hashtags'] ?? []),
+      type: json['type'] ?? 'post',
       repostOf: json['repostOf'] != null ? PostEntity.fromJson(json['repostOf']) : null,
     );
   }
@@ -101,6 +106,6 @@ class PostEntity extends Equatable {
   List<Object?> get props => [
     id, userId, userName, userAvatar, caption, mediaUrls, 
     likesCount, commentsCount, createdAt, isLiked, isSaved,
-    repostOf, repostsCount, hashtags
+    repostOf, repostsCount, hashtags, type
   ];
 }

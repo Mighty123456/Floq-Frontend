@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -23,12 +24,8 @@ class FloqAvatar extends StatelessWidget {
   });
 
   String _getInitials(String name) {
-    if (name.isEmpty) return "?";
-    List<String> nameParts = name.trim().split(RegExp(r'\s+'));
-    if (nameParts.length > 1) {
-      return (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
-    }
-    return nameParts[0][0].toUpperCase();
+    if (name.isEmpty || name == 'Unknown') return "?";
+    return name.trim()[0].toUpperCase();
   }
 
   @override
@@ -36,7 +33,15 @@ class FloqAvatar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
-    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    final isPlaceholder = imageUrl != null && (
+      imageUrl!.contains('pravatar.cc') || 
+      imageUrl!.contains('robohash.org') || 
+      imageUrl!.contains('ui-avatars.com') ||
+      imageUrl!.contains('placeholder')
+    );
+
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty && !isPlaceholder;
+    final isLocal = hasImage && !imageUrl!.startsWith('http');
     
     return CircularOverlay(
       radius: radius,
@@ -46,39 +51,44 @@ class FloqAvatar extends StatelessWidget {
         backgroundColor: backgroundColor ?? (isDark ? Colors.white12 : Colors.grey[200]),
         child: hasImage 
           ? ClipOval(
-              child: CachedNetworkImage(
-                imageUrl: imageUrl!,
-                fit: BoxFit.cover,
-                width: radius * 2,
-                height: radius * 2,
-                placeholder: (context, url) => Center(
-                  child: Text(
-                    _getInitials(name),
-                    style: GoogleFonts.poppins(
-                      fontSize: fontSize ?? (radius * 0.8),
-                      fontWeight: FontWeight.bold,
-                      color: textColor ?? colorScheme.primary.withValues(alpha: 0.5),
+              child: isLocal 
+                ? Image.file(
+                    File(imageUrl!),
+                    fit: BoxFit.cover,
+                    width: radius * 2,
+                    height: radius * 2,
+                    errorBuilder: (context, error, stackTrace) => _buildInitials(colorScheme),
+                  )
+                : CachedNetworkImage(
+                    imageUrl: imageUrl!,
+                    fit: BoxFit.cover,
+                    width: radius * 2,
+                    height: radius * 2,
+                    placeholder: (context, url) => Center(
+                      child: Text(
+                        _getInitials(name),
+                        style: GoogleFonts.poppins(
+                          fontSize: fontSize ?? (radius * 0.8),
+                          fontWeight: FontWeight.bold,
+                          color: textColor ?? colorScheme.primary.withValues(alpha: 0.5),
+                        ),
+                      ),
                     ),
+                    errorWidget: (context, url, error) => _buildInitials(colorScheme),
                   ),
-                ),
-                errorWidget: (context, url, error) => Text(
-                  _getInitials(name),
-                  style: GoogleFonts.poppins(
-                    fontSize: fontSize ?? (radius * 0.8),
-                    fontWeight: FontWeight.bold,
-                    color: textColor ?? colorScheme.primary,
-                  ),
-                ),
-              ),
             )
-          : Text(
-              _getInitials(name),
-              style: GoogleFonts.poppins(
-                fontSize: fontSize ?? (radius * 0.8),
-                fontWeight: FontWeight.bold,
-                color: textColor ?? colorScheme.primary,
-              ),
-            ),
+          : _buildInitials(colorScheme),
+      ),
+    );
+  }
+
+  Widget _buildInitials(ColorScheme colorScheme) {
+    return Text(
+      _getInitials(name),
+      style: GoogleFonts.poppins(
+        fontSize: fontSize ?? (radius * 0.8),
+        fontWeight: FontWeight.bold,
+        color: textColor ?? colorScheme.primary,
       ),
     );
   }

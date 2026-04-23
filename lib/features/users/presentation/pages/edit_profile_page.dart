@@ -354,7 +354,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 
                 _buildField(
                   label: "Email Address",
-                  initialValue: "alex.design@floq.me",
+                  initialValue: widget.user.email,
                   icon: Icons.email_outlined,
                   isDark: isDark,
                 ),

@@ -13,6 +13,7 @@ import '../../../../core/presentation/widgets/bouncy_button.dart';
 import '../../../../core/presentation/widgets/bubble_notification.dart';
 
 import 'user_profile_page.dart';
+import '../../../chat/domain/entities/channel_entity.dart';
 
 
 
@@ -33,6 +34,12 @@ class _UsersView extends StatefulWidget {
 }
 
 class _UsersViewState extends State<_UsersView> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<UsersBloc>().add(LoadTrendingChannelsRequested());
+  }
+
   final List<String> _categories = ["All", "Tech", "Design", "Gaming", "Music", "Nature", "Art"];
   int _selectedCategoryIndex = 0;
   Timer? _debounce;
@@ -209,14 +216,19 @@ class _UsersViewState extends State<_UsersView> {
                   SliverToBoxAdapter(
                     child: SizedBox(
                       height: 140,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: 4,
-                        itemBuilder: (context, index) {
-                          return _buildChannelCard(index, isDark, colorScheme);
-                        },
-                      ),
+                      child: state.isLoadingTrending && state.trendingChannels.isEmpty
+                          ? const Center(child: BubbleLoader())
+                          : state.trendingChannels.isEmpty
+                              ? const Center(child: Text("No trending channels", style: TextStyle(color: Colors.grey, fontSize: 12)))
+                              : ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  itemCount: state.trendingChannels.length,
+                                  itemBuilder: (context, index) {
+                                    final channel = state.trendingChannels[index];
+                                    return _buildChannelCard(channel, isDark, colorScheme);
+                                  },
+                                ),
                     ),
                   ),
 
@@ -360,15 +372,16 @@ class _UsersViewState extends State<_UsersView> {
   }
 
 
-  Widget _buildChannelCard(int index, bool isDark, ColorScheme colorScheme) {
-    final channelNames = ["Flutter Devs", "Nature Lovers", "Crypto World", "Design Hub"];
+  Widget _buildChannelCard(ChannelEntity channel, bool isDark, ColorScheme colorScheme) {
     return Container(
       width: 200,
       margin: const EdgeInsets.only(right: 12, bottom: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         image: DecorationImage(
-          image: NetworkImage("https://picsum.photos/seed/channel$index/400/200"),
+          image: channel.avatarUrl.isNotEmpty 
+              ? NetworkImage(channel.avatarUrl) 
+              : NetworkImage("https://picsum.photos/seed/${channel.id}/400/200") as ImageProvider,
           fit: BoxFit.cover,
           colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.4), BlendMode.darken),
         ),
@@ -380,11 +393,11 @@ class _UsersViewState extends State<_UsersView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              channelNames[index],
+              channel.name,
               style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
             ),
             Text(
-              "${(index + 1) * 2}k Members",
+              "${channel.memberCount} Members",
               style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
           ],

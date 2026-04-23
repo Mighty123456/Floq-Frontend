@@ -89,3 +89,7 @@ class LoadFollowingRequested extends UsersEvent {
   List<Object> get props => [userId];
 }
 
+class LoadConnectionCategoriesRequested extends UsersEvent {}
+
+class LoadTrendingChannelsRequested extends UsersEvent {}
+

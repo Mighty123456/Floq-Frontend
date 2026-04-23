@@ -71,7 +71,7 @@ class RecentChatsRepositoryImpl implements RecentChatsRepository {
       return ChatSessionEntity(
         id: c['_id'].toString(), 
         name: c['name'] ?? 'Group',
-        profileUrl: c['avatar'] ?? 'https://i.pravatar.cc/150?u=${c['_id']}',
+        profileUrl: c['avatar'] ?? '',
         lastMessage: c['lastMessage'] ?? '',
         lastMessageTime: c['lastMessageTime'] != null ? DateTime.parse(c['lastMessageTime']) : null,
         unreadCount: c['unreadCount'] ?? 0,
@@ -83,7 +83,7 @@ class RecentChatsRepositoryImpl implements RecentChatsRepository {
       return ChatSessionEntity(
         id: c['_id'].toString(), 
         name: user['fullName'] ?? user['username'] ?? 'Unknown',
-        profileUrl: user['avatar'] ?? 'https://i.pravatar.cc/150?u=${c['_id']}',
+        profileUrl: user['avatar'] ?? '',
         lastMessage: c['lastMessage'] ?? '',
         lastMessageTime: c['lastMessageTime'] != null ? DateTime.parse(c['lastMessageTime']) : null,
         unreadCount: c['unreadCount'] ?? 0,

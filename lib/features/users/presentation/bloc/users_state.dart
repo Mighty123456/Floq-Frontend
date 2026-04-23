@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../../../features/feed/domain/entities/post_entity.dart';
+import '../../../chat/domain/entities/channel_entity.dart';
 
 class UsersState extends Equatable {
   final List<UserEntity> users;
@@ -11,6 +12,9 @@ class UsersState extends Equatable {
   final List<UserEntity> followers;
   final List<UserEntity> following;
   final List<PostEntity> explorePosts;
+  final List<UserEntity> dontFollowBack;
+  final List<UserEntity> newFollowers;
+  final List<ChannelEntity> trendingChannels;
   
   final bool isLoadingUsers;
   final bool isLoadingRequests;
@@ -20,6 +24,8 @@ class UsersState extends Equatable {
   final bool isLoadingFollowers;
   final bool isLoadingFollowing;
   final bool isLoadingExplore;
+  final bool isLoadingCategories;
+  final bool isLoadingTrending;
   final String? errorMessage;
 
   const UsersState({
@@ -31,6 +37,9 @@ class UsersState extends Equatable {
     this.followers = const [],
     this.following = const [],
     this.explorePosts = const [],
+    this.dontFollowBack = const [],
+    this.newFollowers = const [],
+    this.trendingChannels = const [],
     this.isLoadingUsers = false,
     this.isLoadingRequests = false,
     this.isLoadingContacts = false,
@@ -39,6 +48,8 @@ class UsersState extends Equatable {
     this.isLoadingFollowers = false,
     this.isLoadingFollowing = false,
     this.isLoadingExplore = false,
+    this.isLoadingCategories = false,
+    this.isLoadingTrending = false,
     this.errorMessage,
   });
 
@@ -51,6 +62,9 @@ class UsersState extends Equatable {
     List<UserEntity>? followers,
     List<UserEntity>? following,
     List<PostEntity>? explorePosts,
+    List<UserEntity>? dontFollowBack,
+    List<UserEntity>? newFollowers,
+    List<ChannelEntity>? trendingChannels,
     bool? isLoadingUsers,
     bool? isLoadingRequests,
     bool? isLoadingContacts,
@@ -59,6 +73,8 @@ class UsersState extends Equatable {
     bool? isLoadingFollowers,
     bool? isLoadingFollowing,
     bool? isLoadingExplore,
+    bool? isLoadingCategories,
+    bool? isLoadingTrending,
     String? errorMessage,
   }) {
     return UsersState(
@@ -70,6 +86,9 @@ class UsersState extends Equatable {
       followers: followers ?? this.followers,
       following: following ?? this.following,
       explorePosts: explorePosts ?? this.explorePosts,
+      dontFollowBack: dontFollowBack ?? this.dontFollowBack,
+      newFollowers: newFollowers ?? this.newFollowers,
+      trendingChannels: trendingChannels ?? this.trendingChannels,
       isLoadingUsers: isLoadingUsers ?? this.isLoadingUsers,
       isLoadingRequests: isLoadingRequests ?? this.isLoadingRequests,
       isLoadingContacts: isLoadingContacts ?? this.isLoadingContacts,
@@ -78,6 +97,8 @@ class UsersState extends Equatable {
       isLoadingFollowers: isLoadingFollowers ?? this.isLoadingFollowers,
       isLoadingFollowing: isLoadingFollowing ?? this.isLoadingFollowing,
       isLoadingExplore: isLoadingExplore ?? this.isLoadingExplore,
+      isLoadingCategories: isLoadingCategories ?? this.isLoadingCategories,
+      isLoadingTrending: isLoadingTrending ?? this.isLoadingTrending,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -92,6 +113,9 @@ class UsersState extends Equatable {
         followers,
         following,
         explorePosts,
+        dontFollowBack,
+        newFollowers,
+        trendingChannels,
         isLoadingUsers,
         isLoadingRequests,
         isLoadingContacts,
@@ -100,6 +124,8 @@ class UsersState extends Equatable {
         isLoadingFollowers,
         isLoadingFollowing,
         isLoadingExplore,
+        isLoadingCategories,
+        isLoadingTrending,
         errorMessage,
       ];
 }

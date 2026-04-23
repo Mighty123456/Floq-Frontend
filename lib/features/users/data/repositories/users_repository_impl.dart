@@ -2,13 +2,21 @@ import 'package:dio/dio.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/users_repository.dart';
 import '../../../../core/services/api_client.dart';
+import '../../../chat/domain/entities/channel_entity.dart';
 
 class UsersRepositoryImpl implements UsersRepository {
   final ApiClient _apiClient;
 
   UsersRepositoryImpl(this._apiClient);
 
-
+  @override
+  Future<UserEntity?> getMe() async {
+    final response = await _apiClient.dio.get('/users/profile/me');
+    if (response.data['success']) {
+      return _parseUser(response.data['data']);
+    }
+    return null;
+  }
   @override
   Future<List<UserEntity>> getUsers() async {
     final response = await _apiClient.dio.get('/users/explore');
@@ -121,13 +129,59 @@ class UsersRepositoryImpl implements UsersRepository {
     return [];
   }
 
+  @override
+  Future<Map<String, List<UserEntity>>> getConnectionCategories() async {
+    final response = await _apiClient.dio.get('/connections/categories');
+    if (response.data['success']) {
+      final data = response.data['data'];
+      return {
+        'dontFollowBack': (data['dontFollowBack'] as List).map((u) => _parseUser(u)).toList(),
+        'newFollowers': (data['newFollowers'] as List).map((u) => _parseUser(u)).toList(),
+      };
+    }
+    return {'dontFollowBack': [], 'newFollowers': []};
+  }
+
+  @override
+  Future<List<ChannelEntity>> getTrendingChannels() async {
+    final response = await _apiClient.dio.get('/chat/trending/groups');
+    if (response.data['success']) {
+      final List data = response.data['data'];
+      return data.map((c) => _parseChannel(c)).toList();
+    }
+    return [];
+  }
+
+  @override
+  Future<void> updateCameraSettings({required bool alwaysStartOnFrontCamera, required String toolbarSide}) async {
+    await _apiClient.dio.patch('/users/camera-settings', data: {
+      'cameraSettings': {
+        'alwaysStartOnFrontCamera': alwaysStartOnFrontCamera,
+        'toolbarSide': toolbarSide,
+      }
+    });
+  }
+
+  ChannelEntity _parseChannel(dynamic c) {
+    return ChannelEntity(
+      id: c['_id'],
+      name: c['name'],
+      description: c['description'] ?? '',
+      avatarUrl: (c['avatar'] is Map) ? (c['avatar']['url'] ?? '') : (c['avatar'] ?? ''),
+      memberCount: c['memberCount'] ?? (c['members'] as List).length,
+      adminId: c['admin'].toString(),
+    );
+  }
+
   UserEntity _parseUser(dynamic u) {
     return UserEntity(
       id: u['_id'],
       name: u['fullName'] ?? u['username'] ?? 'Unknown',
-      profileUrl: u['avatar']?['url'] ?? 'https://i.pravatar.cc/150?u=${u['_id']}',
+      profileUrl: (u['avatar'] is Map) ? (u['avatar']['url'] ?? '') : (u['avatar'] ?? ''),
       bio: u['bio'] ?? '',
+      email: u['email'] ?? '',
       relation: _parseRelation(u['relation']),
+      cameraSettings: u['cameraSettings'] ?? const {'alwaysStartOnFrontCamera': false, 'toolbarSide': 'left'},
     );
   }
 
@@ -136,7 +190,7 @@ class UsersRepositoryImpl implements UsersRepository {
      return ContactEntity(
       id: u['_id'],
       name: u['fullName'] ?? u['username'] ?? 'Unknown',
-      profileUrl: u['avatar'] ?? 'https://i.pravatar.cc/150?u=${u['_id']}',
+      profileUrl: (u['avatar'] is Map) ? u['avatar']['url'] : (u['avatar'] ?? ''),
       statusMessage: u['bio'] ?? 'Available',
     );
   }

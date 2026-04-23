@@ -10,12 +10,26 @@ class LoadFeedRequested extends FeedEvent {}
 
 class RefreshFeedRequested extends FeedEvent {}
 
+class LoadReelsRequested extends FeedEvent {}
+
 class LoadMoreFeedRequested extends FeedEvent {}
 
 class CreatePostRequested extends FeedEvent {
   final String caption;
   final List<String> mediaPaths;
-  const CreatePostRequested(this.caption, this.mediaPaths);
+  final String? type;
+  final Map<String, dynamic>? location;
+  final Map<String, dynamic>? audioData;
+  final Map<String, dynamic>? metadata;
+
+  const CreatePostRequested(
+    this.caption, 
+    this.mediaPaths, {
+    this.type, 
+    this.location, 
+    this.audioData, 
+    this.metadata
+  });
 }
 
 class LikePostRequested extends FeedEvent {

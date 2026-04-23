@@ -1,6 +1,8 @@
 import '../entities/user_entity.dart';
+import '../../../chat/domain/entities/channel_entity.dart';
 
 abstract class UsersRepository {
+  Future<UserEntity?> getMe();
   Future<List<UserEntity>> getUsers();
   Future<List<UserEntity>> getPendingRequests();
   Future<List<ContactEntity>> getContacts();
@@ -18,5 +20,8 @@ abstract class UsersRepository {
   Future<void> uploadAvatar(String imagePath);
   Future<List<UserEntity>> getFollowers(String userId);
   Future<List<UserEntity>> getFollowing(String userId);
+  Future<Map<String, List<UserEntity>>> getConnectionCategories();
+  Future<List<ChannelEntity>> getTrendingChannels();
+  Future<void> updateCameraSettings({required bool alwaysStartOnFrontCamera, required String toolbarSide});
 }
 
