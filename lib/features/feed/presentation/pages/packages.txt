@@ -1,0 +1,84 @@
+1. [google_sign_in package](https://pub.dev/packages/google_sign_in)
+2. [documentation](https://pub.dev/documentation/google_sign_in/latest/index.html)
+3. [google_sign_in.dart](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/)
+4. GoogleSignInAuthorizationClient class
+[google_sign_in package](https://pub.dev/packages/google_sign_in)
+[documentation](https://pub.dev/documentation/google_sign_in/latest/index.html)
+[google_sign_in.dart](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/)
+
+# GoogleSignInAuthorizationClient class
+
+A utility for requesting authorization tokens.
+If the instance was obtained from a [GoogleSignInAccount](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInAccount-class.html), any requests issued by this client will be for tokens for that account.
+If the instance was obtained directly from [GoogleSignIn](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignIn-class.html), the request will not be limited to a specific user, and the behavior will depend on the platform and the current application state. Examples include:
+- If there is an active authentication session in the application already,
+the authorization tokens may be associated for that user.
+- If no user has been authenticated, this may trigger a combined
+authentication+authorization flow. In that case, whether
+[GoogleSignIn](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignIn-class.html)'s authenticationEvents stream will be informed of the
+authentication depends on the platform implementation. You should not
+assume the user information or authenication tokens will be available in
+this case.
+[GoogleSignIn](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignIn-class.html)
+
+## Properties
+[hashCode](https://api.flutter.dev/flutter/dart-core/Object/hashCode.html)
+[int](https://api.flutter.dev/flutter/dart-core/int-class.html)
+[runtimeType](https://api.flutter.dev/flutter/dart-core/Object/runtimeType.html)
+[Type](https://api.flutter.dev/flutter/dart-core/Type-class.html)
+
+## Methods
+[authorizationForScopes](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInAuthorizationClient/authorizationForScopes.html)
+[List](https://api.flutter.dev/flutter/dart-core/List-class.html)
+[String](https://api.flutter.dev/flutter/dart-core/String-class.html)
+[Future](https://api.flutter.dev/flutter/dart-async/Future-class.html)
+[GoogleSignInClientAuthorization](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInClientAuthorization-class.html)
+[authorizationHeaders](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInAuthorizationClient/authorizationHeaders.html)
+[List](https://api.flutter.dev/flutter/dart-core/List-class.html)
+[String](https://api.flutter.dev/flutter/dart-core/String-class.html)
+[bool](https://api.flutter.dev/flutter/dart-core/bool-class.html)
+[Future](https://api.flutter.dev/flutter/dart-async/Future-class.html)
+[Map](https://api.flutter.dev/flutter/dart-core/Map-class.html)
+[String](https://api.flutter.dev/flutter/dart-core/String-class.html)
+[String](https://api.flutter.dev/flutter/dart-core/String-class.html)
+
+```
+<String, String>
+```
+
+[authorizeScopes](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInAuthorizationClient/authorizeScopes.html)
+[List](https://api.flutter.dev/flutter/dart-core/List-class.html)
+[String](https://api.flutter.dev/flutter/dart-core/String-class.html)
+[Future](https://api.flutter.dev/flutter/dart-async/Future-class.html)
+[GoogleSignInClientAuthorization](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInClientAuthorization-class.html)
+[authorizeServer](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInAuthorizationClient/authorizeServer.html)
+[List](https://api.flutter.dev/flutter/dart-core/List-class.html)
+[String](https://api.flutter.dev/flutter/dart-core/String-class.html)
+[Future](https://api.flutter.dev/flutter/dart-async/Future-class.html)
+[GoogleSignInServerAuthorization](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInServerAuthorization-class.html)
+[clearAuthorizationToken](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/GoogleSignInAuthorizationClient/clearAuthorizationToken.html)
+[String](https://api.flutter.dev/flutter/dart-core/String-class.html)
+[Future](https://api.flutter.dev/flutter/dart-async/Future-class.html)
+
+```
+accessToken
+```
+
+[noSuchMethod](https://api.flutter.dev/flutter/dart-core/Object/noSuchMethod.html)
+[Invocation](https://api.flutter.dev/flutter/dart-core/Invocation-class.html)
+[toString](https://api.flutter.dev/flutter/dart-core/Object/toString.html)
+[String](https://api.flutter.dev/flutter/dart-core/String-class.html)
+
+## Operators
+[operator ==](https://api.flutter.dev/flutter/dart-core/Object/operator_equals.html)
+[Object](https://api.flutter.dev/flutter/dart-core/Object-class.html)
+[bool](https://api.flutter.dev/flutter/dart-core/bool-class.html)
+1. [google_sign_in package](https://pub.dev/packages/google_sign_in)
+2. [documentation](https://pub.dev/documentation/google_sign_in/latest/index.html)
+3. [google_sign_in](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/)
+4. GoogleSignInAuthorizationClient class
+[google_sign_in package](https://pub.dev/packages/google_sign_in)
+[documentation](https://pub.dev/documentation/google_sign_in/latest/index.html)
+[google_sign_in](https://pub.dev/documentation/google_sign_in/latest/google_sign_in/)
+
+##### google_sign_in library

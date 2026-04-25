@@ -31,6 +31,8 @@ abstract class FeedRepository {
     Map<String, dynamic>? metadata,
   });
   Future<void> markStoryAsSeen(String storyId);
+  Future<List<Map<String, dynamic>>> getTrendingMusic({String? query});
+  Future<Map<String, List<Map<String, dynamic>>>> fetchEffects();
 }
 
 

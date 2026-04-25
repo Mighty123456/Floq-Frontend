@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/users_bloc.dart';
@@ -269,118 +270,122 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   }
 
   void _showShareProfileSheet() {
+    HapticFeedback.lightImpact();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showGeneralDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: "Share",
-      barrierColor: Colors.black.withValues(alpha: 0.8),
-      transitionDuration: const Duration(milliseconds: 400),
-      pageBuilder: (context, anim1, anim2) => const SizedBox(),
-      transitionBuilder: (context, anim1, anim2, child) {
-        final curve = Curves.elasticOut.transform(anim1.value);
-        return Transform.scale(
-          scale: curve,
-          child: Opacity(
-            opacity: anim1.value,
-            child: Center(
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.85,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  borderRadius: BorderRadius.circular(32),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.2),
-                      blurRadius: 40,
-                      spreadRadius: 10,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "Share Identity",
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Interactive QR
-                      _buildInteractiveQr(context),
-                      const SizedBox(height: 24),
-                      
-                      Text(
-                        "floq.me/${widget.user.name.toLowerCase().replaceAll(' ', '')}",
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
-                        ),
-                      ).animate().fadeIn(delay: 600.ms, duration: 600.ms).slideY(begin: 0.3, curve: Curves.easeOutQuint),
-                      const SizedBox(height: 24),
-
-                      
-                      Text(
-                        "Tap to share via",
-                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 16),
-                      
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  Text(
+                    "Share Identity",
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.5, curve: Curves.easeOutExpo),
+                  const SizedBox(height: 24),
+                  
+                  // Interactive QR
+                  _buildInteractiveQr(context),
+                  const SizedBox(height: 32),
+                  
+                  Text(
+                    "floq.me/${widget.user.name.toLowerCase().replaceAll(' ', '')}",
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                      letterSpacing: 0.5,
+                    ),
+                  ).animate().fadeIn(delay: 500.ms, duration: 700.ms).slideY(begin: 0.4, curve: Curves.easeOutExpo),
+                  const SizedBox(height: 32),
+                  
+                  Text(
+                    "Tap to share via",
+                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey, letterSpacing: 1),
+                  ).animate().fadeIn(delay: 600.ms),
+                  const SizedBox(height: 24),
+                  
                   Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildShareIcon(
-                            Icons.chat_bubble_rounded, 
-                            "WhatsApp", 
-                            Colors.greenAccent, 
-                            onTap: () async {
-                              final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
-                              final url = Uri.parse("whatsapp://send?text=Check out my Floq profile: $profileLink");
-                              if (await canLaunchUrl(url)) {
-                                await launchUrl(url);
-                              } else {
-                                if (context.mounted) BubbleNotification.show(context, "WhatsApp not installed", type: NotificationType.error);
-                              }
-                            }
-                          ).animate().fadeIn(delay: 700.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOutQuint).scale(curve: Curves.easeOutBack),
-                          _buildShareIcon(Icons.camera_alt_rounded, "Stories", Colors.pinkAccent, onTap: () {
-                            Navigator.pop(context);
-                            BubbleNotification.show(context, "Profile card generated for Stories!", type: NotificationType.success);
-                          }).animate().fadeIn(delay: 800.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOutQuint).scale(curve: Curves.easeOutBack),
-                          _buildShareIcon(Icons.copy_rounded, "Copy", Colors.grey, onTap: () {
-                            final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
-                            Clipboard.setData(ClipboardData(text: profileLink));
-                            Navigator.pop(context);
-                            BubbleNotification.show(context, "Link copied to clipboard!", type: NotificationType.success);
-                          }).animate().fadeIn(delay: 900.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOutQuint).scale(curve: Curves.easeOutBack),
-                          _buildShareIcon(Icons.more_horiz_rounded, "More", colorScheme.primary, onTap: () async {
-                            final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
-                            final url = Uri.parse("mailto:?subject=Connect with me on Floq&body=Check out my profile: $profileLink");
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(url);
-                            }
-                          }).animate().fadeIn(delay: 1000.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOutQuint).scale(curve: Curves.easeOutBack),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildShareIcon(
+                        Icons.chat_bubble_rounded, 
+                        "WhatsApp", 
+                        Colors.greenAccent, 
+                        onTap: () async {
+                          HapticFeedback.mediumImpact();
+                          final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
+                          final url = Uri.parse("whatsapp://send?text=Check out my Floq profile: $profileLink");
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url);
+                          } else {
+                            if (context.mounted) BubbleNotification.show(context, "WhatsApp not installed", type: NotificationType.error);
+                          }
+                        }
+                      ).animate().fadeIn(delay: 700.ms, duration: 600.ms).slideY(begin: 0.6, curve: Curves.easeOutExpo).scale(curve: Curves.easeOutBack),
+                      _buildShareIcon(Icons.camera_alt_rounded, "Stories", Colors.pinkAccent, onTap: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.pop(context);
+                        BubbleNotification.show(context, "Profile card generated for Stories!", type: NotificationType.success);
+                      }).animate().fadeIn(delay: 800.ms, duration: 600.ms).slideY(begin: 0.6, curve: Curves.easeOutExpo).scale(curve: Curves.easeOutBack),
+                      _buildShareIcon(Icons.copy_rounded, "Copy", Colors.grey, onTap: () {
+                        HapticFeedback.mediumImpact();
+                        final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
+                        Clipboard.setData(ClipboardData(text: profileLink));
+                        Navigator.pop(context);
+                        BubbleNotification.show(context, "Link copied to clipboard!", type: NotificationType.success);
+                      }).animate().fadeIn(delay: 900.ms, duration: 600.ms).slideY(begin: 0.6, curve: Curves.easeOutExpo).scale(curve: Curves.easeOutBack),
+                      _buildShareIcon(Icons.more_horiz_rounded, "More", Theme.of(context).colorScheme.primary, onTap: () async {
+                        HapticFeedback.mediumImpact();
+                        final profileLink = "https://floq.me/profile/${widget.user.name.toLowerCase().replaceAll(' ', '')}";
+                        final url = Uri.parse("mailto:?subject=Connect with me on Floq&body=Check out my profile: $profileLink");
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url);
+                        }
+                      }).animate().fadeIn(delay: 1000.ms, duration: 600.ms).slideY(begin: 0.6, curve: Curves.easeOutExpo).scale(curve: Curves.easeOutBack),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 32),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -500,7 +505,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               ),
             ],
           ),
-        ).animate().scale(delay: 400.ms, curve: Curves.easeOutQuint, duration: 800.ms).fadeIn(duration: 600.ms).slideY(begin: 0.1, curve: Curves.easeOutQuint);
+        ).animate().scale(delay: 400.ms, curve: Curves.easeOutExpo, duration: 900.ms).fadeIn(duration: 700.ms).slideY(begin: 0.15, curve: Curves.easeOutExpo);
       },
     );
   }

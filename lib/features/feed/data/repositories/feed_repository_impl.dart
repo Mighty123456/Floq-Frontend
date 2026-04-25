@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/post_entity.dart';
 import '../../domain/entities/comment_entity.dart';
 import '../../domain/entities/story_entity.dart';
@@ -195,6 +196,62 @@ class FeedRepositoryImpl implements FeedRepository {
   @override
   Future<void> markStoryAsSeen(String storyId) async {
     await _apiClient.dio.post('/stories/$storyId/view');
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getTrendingMusic({String? query}) async {
+    try {
+      final response = await _apiClient.dio.get(
+        '/music/trending', 
+        queryParameters: query != null ? {'q': query} : null
+      );
+      
+      final dynamic responseData = response.data;
+      
+      // Handle wrapped response: { success: true, data: [...] }
+      if (responseData is Map && responseData.containsKey('data')) {
+        final data = responseData['data'];
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+      }
+      
+      // Handle raw response: [...]
+      if (responseData is List) {
+        return List<Map<String, dynamic>>.from(responseData);
+      }
+      
+      return [];
+    } catch (e) {
+      debugPrint("Error fetching music: $e");
+      return [];
+    }
+  }
+
+  @override
+  Future<Map<String, List<Map<String, dynamic>>>> fetchEffects() async {
+    try {
+      final response = await _apiClient.dio.get('/effects');
+      final dynamic responseData = response.data;
+      
+      Map<String, dynamic>? data;
+      if (responseData is Map && responseData.containsKey('data')) {
+        data = responseData['data'];
+      } else if (responseData is Map) {
+        data = Map<String, dynamic>.from(responseData);
+      }
+
+      if (data != null) {
+        return {
+          'filters': List<Map<String, dynamic>>.from(data['filters'] ?? []),
+          'overlays': List<Map<String, dynamic>>.from(data['overlays'] ?? []),
+        };
+      }
+      return {'filters': [], 'overlays': []};
+    } catch (e) {
+      debugPrint("Error fetching effects: $e");
+      return {'filters': [], 'overlays': []};
+    }
   }
 
   StoryGroupEntity _parseStoryGroup(dynamic json) {
